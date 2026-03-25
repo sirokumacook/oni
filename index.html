@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>NPC NEON CHASE</title>
+    <title>NPC ネオン鬼ごっこ</title>
     <style>
         body { margin: 0; overflow: hidden; background-color: #000; color: #fff; font-family: 'Courier New', Courier, monospace; display: flex; text-shadow: 0 0 5px #fff; }
 
@@ -29,58 +29,58 @@
         .btn-freeze { border-color: #0cf; color: #0cf; text-shadow: 0 0 5px #0cf; box-shadow: 0 0 5px #0cf; }
         .btn-freeze:hover { background: #0cf; color: #000; text-shadow: none; box-shadow: 0 0 20px #0cf; }
 
-        /* リセットボタン用のスタイル */
-        button[onclick="resetGame()"] { border-color: #fff; color: #fff; text-shadow: 0 0 5px #fff; box-shadow: 0 0 5px #fff; }
-        button[onclick="resetGame()"]:hover { background: #fff; color: #000; text-shadow: none; box-shadow: 0 0 20px #fff; }
+        button.btn-reset { border-color: #fff; color: #fff; text-shadow: 0 0 5px #fff; box-shadow: 0 0 5px #fff; }
+        button.btn-reset:hover { background: #fff; color: #000; text-shadow: none; box-shadow: 0 0 20px #fff; }
 
         h3 { margin-top: 0; font-size: 1.4em; color: #0ff; border-bottom: 2px solid #0ff; padding-bottom: 10px; margin-bottom: 20px; text-shadow: 0 0 10px #0ff; }
-        label { color: #fff; text-shadow: 0 0 5px #fff; font-size: 0.9em; margin-bottom: 5px; display: block; }
+        label { color: #fff; text-shadow: 0 0 5px #fff; font-size: 0.9em; margin-bottom: 5px; display: block; font-weight: bold; }
         hr { border: 0; border-top: 1px solid #333; margin: 20px 0; }
 
         .status-box { background: #111; padding: 15px; margin-bottom: 20px; border-radius: 5px; font-size: 0.95em; border: 1px solid #0ff; box-shadow: 0 0 10px #0ff; }
         .status-box div { margin-bottom: 5px; }
-        #status-time { color: #fff; }
-        #status-runners { color: #0ff; }
-        #status-message { color: #ff0; text-shadow: 0 0 5px #ff0; }
+        #status-time { color: #fff; font-weight: bold; }
+        #status-runners { color: #0ff; font-weight: bold; }
+        #status-message { color: #ff0; text-shadow: 0 0 5px #ff0; font-weight: bold; }
         
-        .legend { margin-top: 20px; font-size: 0.8em; color: #aaa; text-shadow: none; line-height: 1.5; }
-        .legend span { display: inline-block; width: 10px; height: 10px; margin-right: 5px; border-radius: 2px; }
+        .legend { margin-top: 20px; font-size: 0.85em; color: #ccc; text-shadow: none; line-height: 1.8; }
+        .legend span { display: inline-block; width: 12px; height: 12px; margin-right: 8px; border-radius: 2px; vertical-align: middle; }
     </style>
 </head>
 <body>
 
 <div id="ui">
-    <h3>CORE SYSTEM</h3>
+    <h3>設定パネル</h3>
     <div id="setup-panel">
-        <label>UNIT_RUNNERS: <input type="number" id="input-runners" value="40" min="1"></label>
-        <label>UNIT_HUNTERS: <input type="number" id="input-hunters" value="3" min="1"></label>
-        <label>TIME_LIMIT(MIN): <input type="number" id="input-time" value="10" min="1"></label>
-        <button onclick="startGame()">INITIALIZE</button>
-        <button onclick="resetGame()">SYSTEM_RESET</button>
+        <label>逃げの数 (1/4はアホ): <input type="number" id="input-runners" value="40" min="1"></label>
+        <label>最初の鬼の数: <input type="number" id="input-hunters" value="3" min="1"></label>
+        <label>制限時間 (分): <input type="number" id="input-time" value="10" min="1"></label>
+        <button onclick="startGame()">ゲームスタート</button>
     </div>
 
     <div id="control-panel" style="display:none;">
         <div class="status-box">
-            <div id="status-time">TIME: --:--</div>
-            <div id="status-runners">ALIVE: 0</div>
+            <div id="status-time">残り時間: --:--</div>
+            <div id="status-runners">生存者: 0</div>
             <div id="status-message"></div>
         </div>
         
-        <label>ADD_HUNTERS: <input type="number" id="input-add-hunters" value="5" min="1"></label>
-        <button onclick="addHuntersBtn()">DEPLOY HUNTERS</button>
+        <label>追加する鬼の数: <input type="number" id="input-add-hunters" value="5" min="1"></label>
+        <button onclick="addHuntersBtn()">鬼を追加</button>
         
         <hr>
-        <button class="btn-mission" onclick="triggerMission()">EXECUTE MISSION</button>
-        <button class="btn-freeze" onclick="triggerFreezeGun()">DEPLOY FREEZE_GUN</button>
+        <button class="btn-mission" onclick="triggerMission()">ミッション発動</button>
+        <button class="btn-freeze" onclick="triggerFreezeGun()">冷凍銃を配置</button>
+        
+        <hr>
+        <button class="btn-reset" onclick="resetGame()">リセットして戻る</button>
     </div>
 
     <div class="legend">
-        <span style="background:#0ff; box-shadow:0 0 5px #0ff;"></span>シアン: 逃げ<br>
+        <span style="background:#0ff; box-shadow:0 0 5px #0ff;"></span>シアン: 逃げ（通常＆アホ）<br>
         <span style="background:#f0f; box-shadow:0 0 5px #f0f;"></span>マゼンタ: 鬼<br>
-        <span style="background:#222; border:1px solid #333;"></span>灰色: 障害物<br>
         <span style="background:#0f0; box-shadow:0 0 5px #0f0;"></span>緑枠: 安全エリア<br>
-        <span style="background:#ff0; box-shadow:0 0 5px #ff0;"></span>黄色: アイテム/ミッション鬼<br>
-        <span style="background:#0cf; box-shadow:0 0 5px #0cf;"></span>水色: 冷凍銃/冷凍鬼
+        <span style="background:#ff0; box-shadow:0 0 5px #ff0;"></span>黄色: アイテム / ミッション鬼<br>
+        <span style="background:#0cf; box-shadow:0 0 5px #0cf;"></span>水色: 冷凍銃 / 冷凍された鬼
     </div>
 </div>
 
@@ -89,12 +89,11 @@
 </div>
 
 <script>
-// --- シミュレーション定数 (パフォーマンス確保のためマップサイズ縮小) ---
+// --- シミュレーション定数 ---
 const MAP_SIZE = 1000; 
 const RUNNER_SPEED = 1.2;
 const HUNTER_SPEED = 1.4; 
 const SIGHT_RANGE = 200;
-const OBSTACLE_COUNT = 20;
 const ENTITY_RADIUS = 6;
 const ITEM_RADIUS = 9;
 
@@ -103,7 +102,7 @@ let state = null;
 let lastTimestamp = 0;
 let animationId = null;
 const canvas = document.getElementById('gameCanvas');
-canvas.width = MAP_SIZE; // JSでサイズを固定
+canvas.width = MAP_SIZE;
 canvas.height = MAP_SIZE;
 const ctx = canvas.getContext('2d');
 
@@ -112,28 +111,7 @@ const rand = (min, max) => Math.random() * (max - min) + min;
 const dist = (p1, p2) => Math.hypot(p1.x - p2.x, p1.y - p2.y);
 
 // --- 初期化ロジック ---
-function createObstacles() {
-    let obs = [];
-    let cols = Math.ceil(Math.sqrt(OBSTACLE_COUNT));
-    let rows = Math.ceil(OBSTACLE_COUNT / cols);
-    let cellW = MAP_SIZE / cols;
-    let cellH = MAP_SIZE / rows;
-    for (let i = 0; i < OBSTACLE_COUNT; i++) {
-        let c = i % cols;
-        let r = Math.floor(i / cols);
-        obs.push({
-            x: c * cellW + rand(20, cellW - 100),
-            y: r * cellH + rand(20, cellH - 100),
-            w: rand(50, 150),
-            h: rand(50, 150)
-        });
-    }
-    return obs;
-}
-
 function initGameState(numRunners, numHunters, timeLimitMinutes) {
-    let obstacles = createObstacles();
-    
     let boxW = 150, boxH = 150;
     let box = {
         x: rand(100, MAP_SIZE - boxW - 100),
@@ -144,6 +122,7 @@ function initGameState(numRunners, numHunters, timeLimitMinutes) {
     };
 
     let runners = [];
+    let numFools = Math.floor(numRunners / 4); // 4分の1をアホに設定
     for(let i=0; i<numRunners; i++){
         runners.push({
             id: i,
@@ -152,7 +131,8 @@ function initGameState(numRunners, numHunters, timeLimitMinutes) {
             tx: rand(0, MAP_SIZE), ty: rand(0, MAP_SIZE),
             hasItem: false,
             inSafeZone: false,
-            dead: false
+            dead: false,
+            isFool: (i < numFools) // 最初の規定人数をアホフラグON（描画色は同じなので区別不能）
         });
     }
 
@@ -174,7 +154,6 @@ function initGameState(numRunners, numHunters, timeLimitMinutes) {
         gameResult: null,
         totalTime: timeLimitMinutes * 60,
         timeLeft: timeLimitMinutes * 60,
-        obstacles: obstacles,
         box: box,
         runners: runners,
         hunters: hunters,
@@ -188,36 +167,6 @@ function initGameState(numRunners, numHunters, timeLimitMinutes) {
         },
         lastUpdate: Date.now()
     };
-    saveState();
-}
-
-// --- 永続化 (localStorage) ---
-function saveState() {
-    if (state) localStorage.setItem('onigokko_neon_state', JSON.stringify(state));
-}
-
-function loadState() {
-    let saved = localStorage.getItem('onigokko_neon_state');
-    if (saved) {
-        state = JSON.parse(saved);
-        let now = Date.now();
-        let diffSeconds = (now - state.lastUpdate) / 1000;
-        state.lastUpdate = now;
-
-        if (state.isRunning) {
-            state.timeLeft -= diffSeconds;
-            if (state.box.active) state.box.timer -= diffSeconds;
-            if (state.mission.active) state.mission.timer -= diffSeconds;
-            checkTimeTriggers();
-        }
-        return true;
-    }
-    return false;
-}
-
-function clearState() {
-    localStorage.removeItem('onigokko_neon_state');
-    state = null;
 }
 
 // --- UI アクション ---
@@ -230,15 +179,21 @@ function startGame() {
     let h = parseInt(hInput.value) || 3;
     let t = parseInt(tInput.value) || 10;
     
-    clearState(); // 以前の状態をクリアして新規開始
     initGameState(r, h, t);
     document.getElementById('setup-panel').style.display = 'none';
     document.getElementById('control-panel').style.display = 'block';
+    
+    if (animationId) cancelAnimationFrame(animationId);
+    requestAnimationFrame(update);
 }
 
 function resetGame() {
-    clearState();
-    location.reload();
+    state = null;
+    if (animationId) cancelAnimationFrame(animationId);
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    document.getElementById('setup-panel').style.display = 'block';
+    document.getElementById('control-panel').style.display = 'none';
+    document.getElementById('status-message').innerText = "";
 }
 
 function addHuntersBtn() {
@@ -252,8 +207,7 @@ function addHuntersBtn() {
             frozen: false, isMission: false
         });
     }
-    showMessage(`DEPLOYED ${count} HUNTERS`);
-    saveState();
+    showMessage(`鬼を ${count} 体追加しました！`);
 }
 
 function triggerMission() {
@@ -262,6 +216,7 @@ function triggerMission() {
     state.mission.phase = 1;
     state.mission.timer = 30;
     
+    // 生存している「通常」と「アホ」両方の総数分のアイテムが出る
     let aliveRunners = state.runners.filter(r => !r.dead);
     aliveRunners.forEach((r, idx) => {
         state.items.push({
@@ -270,8 +225,7 @@ function triggerMission() {
             y: rand(50, MAP_SIZE - 50)
         });
     });
-    showMessage("MISSION: COLLECT ITEMS AND ACCESS SAFE_ZONE [30s]");
-    saveState();
+    showMessage("ミッション発動！アイテムを拾って安全エリアへ急げ！(30秒)");
 }
 
 function triggerFreezeGun() {
@@ -288,8 +242,7 @@ function triggerFreezeGun() {
         x: rand(50, MAP_SIZE - 50),
         y: rand(50, MAP_SIZE - 50)
     });
-    showMessage("FREEZE_GUN DEPLOYED. 10 HUNTERS ADDED.");
-    saveState();
+    showMessage("冷凍銃が出現！同時に鬼が10体追加されました！");
 }
 
 function showMessage(msg) {
@@ -307,11 +260,12 @@ function update() {
 
     if (state.isRunning) {
         state.timeLeft -= dt;
+        
         if (state.box.active) {
             state.box.timer -= dt;
             if (state.box.timer <= 0) {
                 state.box.active = false;
-                showMessage("HUNTERS RELEASED FROM BOX");
+                showMessage("鬼がBOXから放出されました！");
             }
         }
 
@@ -331,51 +285,40 @@ function update() {
                         frozen: false, isMission: true
                     });
                 }
-                showMessage("MISSION FAILED. AREA ISOLATED. SURVIVE 300s.");
+                showMessage("エリア分断！鬼100体放出！外に取り残された者は5分間耐えろ！");
             } else if (state.mission.phase === 2 && state.mission.timer <= 0) {
                 state.mission.active = false;
                 state.mission.phase = 0;
                 state.hunters = state.hunters.filter(h => !h.isMission);
                 state.runners.forEach(r => { r.hasItem = false; r.inSafeZone = false; });
                 state.items = [];
-                showMessage("MISSION ENDED. SYSTEM RESTORED.");
+                showMessage("ミッション終了！鬼100体が消滅し、安全エリアが解除されました。");
             }
         }
 
         let aliveCount = state.runners.filter(r => !r.dead).length;
         if (aliveCount === 0) {
             state.isRunning = false;
-            state.gameResult = "HUNTERS WIN (ALL UNIT ELIMINATED)";
+            state.gameResult = "鬼の勝利（全員確保）";
         } else if (state.timeLeft <= 0) {
             state.isRunning = false;
-            state.gameResult = "RUNNERS WIN (TIME OVER)";
+            state.gameResult = "逃げの勝利（時間切れ）";
         }
 
         updateEntities(dt);
-        saveState();
     }
 
     draw();
     updateUI();
-    requestAnimationFrame(update);
-}
-
-function checkTimeTriggers() {
-    if (state.box.active && state.box.timer <= 0) state.box.active = false;
-    if (state.timeLeft <= 0) state.isRunning = false;
-}
-
-function circleRectCollide(cx, cy, r, rx, ry, rw, rh) {
-    let testX = cx; let testY = cy;
-    if (cx < rx) testX = rx; else if (cx > rx + rw) testX = rx + rw;
-    if (cy < ry) testY = ry; else if (cy > ry + rh) testY = ry + rh;
-    return dist({x: cx, y: cy}, {x: testX, y: testY}) <= r;
+    animationId = requestAnimationFrame(update);
 }
 
 function updateEntities(dt) {
     let aliveRunners = state.runners.filter(r => !r.dead);
 
+    // 逃げの処理
     aliveRunners.forEach(r => {
+        // 安全エリア壁の処理 (分断中)
         if (state.mission.phase === 2) {
             let dToCenter = dist(r, state.mission.safeZone);
             if (r.inSafeZone && dToCenter > state.mission.safeZone.r - ENTITY_RADIUS) {
@@ -389,18 +332,22 @@ function updateEntities(dt) {
             }
         }
 
-        for (let i = state.freezeGuns.length - 1; i >= 0; i--) {
-            if (dist(r, state.freezeGuns[i]) < ITEM_RADIUS + ENTITY_RADIUS) {
-                state.freezeGuns.splice(i, 1);
-                let closeHunters = [...state.hunters].filter(h=>!h.frozen).sort((a,b) => dist(r, a) - dist(r, b));
-                for(let j=0; j<Math.min(closeHunters.length, 10); j++) {
-                    closeHunters[j].frozen = true;
+        // 冷凍銃の取得 (アホは取らない)
+        if (!r.isFool) {
+            for (let i = state.freezeGuns.length - 1; i >= 0; i--) {
+                if (dist(r, state.freezeGuns[i]) < ITEM_RADIUS + ENTITY_RADIUS) {
+                    state.freezeGuns.splice(i, 1);
+                    let closeHunters = [...state.hunters].filter(h=>!h.frozen).sort((a,b) => dist(r, a) - dist(r, b));
+                    for(let j=0; j<Math.min(closeHunters.length, 10); j++) {
+                        closeHunters[j].frozen = true;
+                    }
+                    showMessage("逃げが冷凍銃を使用！鬼を冷凍しました！");
                 }
-                showMessage("RUNNER USED FREEZE_GUN");
             }
         }
 
-        if (state.mission.phase === 1 && !r.hasItem) {
+        // ミッションアイテムの取得 (アホは取らない)
+        if (state.mission.phase === 1 && !r.hasItem && !r.isFool) {
             for (let i = state.items.length - 1; i >= 0; i--) {
                 if (dist(r, state.items[i]) < ITEM_RADIUS + ENTITY_RADIUS) {
                     r.hasItem = true;
@@ -414,6 +361,7 @@ function updateEntities(dt) {
         let targetX = r.tx, targetY = r.ty;
         let nearestHunter = null;
         let minDist = SIGHT_RANGE;
+        
         state.hunters.forEach(h => {
             if (h.frozen) return;
             if (r.inSafeZone && state.mission.phase > 0) return;
@@ -426,10 +374,12 @@ function updateEntities(dt) {
         });
 
         if (nearestHunter) {
+            // 鬼から逃げる（アホも逃げることはする）
             let angle = Math.atan2(r.y - nearestHunter.y, r.x - nearestHunter.x);
             targetX = r.x + Math.cos(angle) * 100;
             targetY = r.y + Math.sin(angle) * 100;
-        } else if (state.mission.phase === 1) {
+        } else if (state.mission.phase === 1 && !r.isFool) {
+            // アホではない場合のみアイテムや安全エリアを目指す
             if (!r.hasItem && state.items.length > 0) {
                 let nearestItem = state.items.sort((a,b) => dist(r, a) - dist(r, b))[0];
                 targetX = nearestItem.x; targetY = nearestItem.y;
@@ -441,6 +391,7 @@ function updateEntities(dt) {
                 }
             }
         } else {
+            // ランダムウォーク（アホはミッション中もずっとこれ）
             if (dist(r, {x: r.tx, y: r.ty}) < 10 || Math.random() < 0.01) {
                 r.tx = rand(0, MAP_SIZE); r.ty = rand(0, MAP_SIZE);
             }
@@ -448,6 +399,7 @@ function updateEntities(dt) {
         moveEntity(r, targetX, targetY, speed);
     });
 
+    // 鬼の処理
     state.hunters.forEach(h => {
         if (h.frozen) return;
 
@@ -487,7 +439,7 @@ function updateEntities(dt) {
             }
             let d = dist(h, r);
             if (d < minDist) { minDist = d; nearestRunner = r; }
-            if (d < (ENTITY_RADIUS + ENTITY_RADIUS)) { r.dead = true; }
+            if (d < (ENTITY_RADIUS + ENTITY_RADIUS)) { r.dead = true; } // 確保
         });
 
         if (nearestRunner) {
@@ -501,6 +453,7 @@ function updateEntities(dt) {
     });
 }
 
+// エンティティの移動 (障害物判定削除済み)
 function moveEntity(e, tx, ty, speed) {
     let angle = Math.atan2(ty - e.y, tx - e.x);
     let nx = e.x + Math.cos(angle) * speed;
@@ -511,30 +464,16 @@ function moveEntity(e, tx, ty, speed) {
     if (ny < ENTITY_RADIUS) ny = ENTITY_RADIUS;
     if (ny > MAP_SIZE - ENTITY_RADIUS) ny = MAP_SIZE - ENTITY_RADIUS;
 
-    let collided = false;
-    for (let obs of state.obstacles) {
-        if (circleRectCollide(nx, ny, ENTITY_RADIUS, obs.x, obs.y, obs.w, obs.h)) {
-            collided = true;
-            let escapeAngle = angle + Math.PI / 2 * (Math.random() > 0.5 ? 1 : -1);
-            e.tx = e.x + Math.cos(escapeAngle) * 80;
-            e.ty = e.y + Math.sin(escapeAngle) * 80;
-            break;
-        }
-    }
-    
-    if (!collided) {
-        e.x = nx; e.y = ny;
-    }
+    e.x = nx; e.y = ny;
 }
 
-// --- 描画処理 (ネオン風) ---
+// --- 描画処理 ---
 function draw() {
     ctx.clearRect(0, 0, canvas.width, canvas.height);
 
     if (!state) return;
 
-    // キャンバス自体にネオンシャドウをかけるため、一律で設定
-    ctx.shadowColor = '#0ff'; // デフォルトはシアンネオン
+    ctx.shadowColor = '#0ff';
     ctx.shadowBlur = 10;
     ctx.lineWidth = 1;
 
@@ -545,18 +484,11 @@ function draw() {
         ctx.beginPath(); ctx.moveTo(0, i); ctx.lineTo(MAP_SIZE, i); ctx.stroke();
     }
 
-    // 影を一時的に無効化
     ctx.shadowBlur = 0;
-
-    // 障害物
-    ctx.fillStyle = '#222';
-    state.obstacles.forEach(obs => {
-        ctx.fillRect(obs.x, obs.y, obs.w, obs.h);
-    });
 
     // 安全エリア
     if (state.mission.active) {
-        ctx.shadowColor = state.mission.phase === 2 ? '#f00' : '#0f0'; // 赤か緑ネオン
+        ctx.shadowColor = state.mission.phase === 2 ? '#f00' : '#0f0';
         ctx.shadowBlur = 15;
         
         ctx.beginPath();
@@ -598,10 +530,10 @@ function draw() {
         ctx.fillRect(gun.x - 8, gun.y - 8, 16, 16);
     });
 
-    // 逃げ
+    // 逃げ (アホも通常も色は同じ)
     state.runners.forEach(r => {
         if (r.dead) return;
-        let color = r.hasItem ? '#ff0' : '#0ff'; // 黄かシアンネオン
+        let color = r.hasItem ? '#ff0' : '#0ff';
         ctx.shadowColor = color;
         ctx.shadowBlur = 10;
         ctx.fillStyle = color;
@@ -610,7 +542,7 @@ function draw() {
 
     // 鬼
     state.hunters.forEach(h => {
-        let color = h.frozen ? '#0cf' : (h.isMission ? '#ff0' : '#f0f'); // 冷凍、ミッション、通常(マゼンタ)
+        let color = h.frozen ? '#0cf' : (h.isMission ? '#ff0' : '#f0f');
         ctx.shadowColor = color;
         ctx.shadowBlur = 10;
         ctx.fillStyle = color;
@@ -629,26 +561,20 @@ function updateUI() {
         let timeStr = `${m}:${s.toString().padStart(2, '0')}`;
         
         if (state.mission.active) {
-            timeStr += ` [M: ${Math.ceil(state.mission.timer)}s]`;
+            timeStr += ` [ミッション: ${Math.ceil(state.mission.timer)}秒]`;
         }
-        timeEl.innerText = `TIME: ${timeStr}`;
+        timeEl.innerText = `残り時間: ${timeStr}`;
     } else {
-        timeEl.innerText = `END: ${state.gameResult}`;
-        document.getElementById('setup-panel').style.display = 'block'; // 再戦用にパネル表示
-        document.getElementById('control-panel').style.display = 'none';
+        timeEl.innerText = `終了: ${state.gameResult}`;
+        // 終了時にボタンを切り替えずにそのまま結果を表示し続ける
     }
 
     let alive = state.runners.filter(r => !r.dead).length;
-    document.getElementById('status-runners').innerText = `ALIVE: ${alive} / ${state.runners.length}`;
+    document.getElementById('status-runners').innerText = `生存者: ${alive} / ${state.runners.length}`;
 }
 
-// --- 起動 ---
-if (loadState()) {
-    document.getElementById('setup-panel').style.display = 'none';
-    document.getElementById('control-panel').style.display = 'block';
-}
-requestAnimationFrame(update);
-
+// 初期状態は描画のみ行う（空のキャンバス）
+draw();
 </script>
 </body>
 </html>
