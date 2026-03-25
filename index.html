@@ -3,46 +3,43 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>NPC ネオン鬼ごっこ</title>
+    <title>NPC 鬼ごっこシミュレーター</title>
     <style>
-        body { margin: 0; overflow: hidden; background-color: #000; color: #fff; font-family: 'Courier New', Courier, monospace; display: flex; text-shadow: 0 0 5px #fff; }
+        body { margin: 0; overflow: hidden; background-color: #000; color: #fff; font-family: 'Courier New', Courier, monospace; display: flex; }
 
-        #ui { width: 320px; padding: 25px; background: #111; box-sizing: border-box; overflow-y: auto; height: 100vh; border-right: 2px solid #0ff; box-shadow: 0 0 15px #0ff; }
+        #ui { width: 320px; padding: 25px; background: #111; box-sizing: border-box; overflow-y: auto; height: 100vh; border-right: 2px solid #555; }
         #ui::-webkit-scrollbar { width: 8px; }
         #ui::-webkit-scrollbar-track { background: #000; }
-        #ui::-webkit-scrollbar-thumb { background: #0ff; border-radius: 4px; }
+        #ui::-webkit-scrollbar-thumb { background: #555; border-radius: 4px; }
 
         #game-container { flex-grow: 1; display: flex; justify-content: center; align-items: center; background: #000; position: relative; height: 100vh; overflow: hidden; }
 
-        canvas { background: #000; border: 2px solid #0ff; box-shadow: 0 0 20px #0ff; max-width: 95%; max-height: 95%; object-fit: contain; }
+        canvas { background: #050505; border: 1px solid #333; max-width: 95%; max-height: 95%; object-fit: contain; }
 
-        input, button { width: 100%; margin-bottom: 12px; padding: 10px; box-sizing: border-box; background: #000; border: 2px solid #fff; color: #fff; font-family: inherit; font-weight: bold; cursor: pointer; border-radius: 5px; transition: all 0.3s ease; text-transform: uppercase; }
-        input { cursor: text; border-color: #888; color: #ccc; }
-        input:focus { border-color: #0ff; box-shadow: 0 0 10px #0ff; color: #fff; text-shadow: 0 0 5px #0ff; outline: none; }
+        input, button { width: 100%; margin-bottom: 12px; padding: 10px; box-sizing: border-box; background: #000; border: 2px solid #fff; color: #fff; font-family: inherit; font-weight: bold; cursor: pointer; border-radius: 5px; transition: all 0.2s ease; text-transform: uppercase; }
+        input { cursor: text; border-color: #666; color: #ccc; }
+        input:focus { border-color: #0f0; color: #fff; outline: none; }
 
-        button { border-color: #0f0; color: #0f0; text-shadow: 0 0 5px #0f0; box-shadow: 0 0 5px #0f0; }
-        button:hover { background: #0f0; color: #000; text-shadow: none; box-shadow: 0 0 20px #0f0; }
+        button { border-color: #555; }
+        button:hover { background: #333; }
 
-        .btn-mission { border-color: #f00; color: #f00; text-shadow: 0 0 5px #f00; box-shadow: 0 0 5px #f00; }
-        .btn-mission:hover { background: #f00; color: #000; text-shadow: none; box-shadow: 0 0 20px #f00; }
+        .btn-mission { border-color: #f00; color: #f00; }
+        .btn-mission:hover { background: #500; color: #fff; }
 
-        .btn-freeze { border-color: #0cf; color: #0cf; text-shadow: 0 0 5px #0cf; box-shadow: 0 0 5px #0cf; }
-        .btn-freeze:hover { background: #0cf; color: #000; text-shadow: none; box-shadow: 0 0 20px #0cf; }
+        .btn-freeze { border-color: #ff0; color: #ff0; }
+        .btn-freeze:hover { background: #550; color: #fff; }
 
-        button.btn-reset { border-color: #fff; color: #fff; text-shadow: 0 0 5px #fff; box-shadow: 0 0 5px #fff; }
-        button.btn-reset:hover { background: #fff; color: #000; text-shadow: none; box-shadow: 0 0 20px #fff; }
-
-        h3 { margin-top: 0; font-size: 1.4em; color: #0ff; border-bottom: 2px solid #0ff; padding-bottom: 10px; margin-bottom: 20px; text-shadow: 0 0 10px #0ff; }
-        label { color: #fff; text-shadow: 0 0 5px #fff; font-size: 0.9em; margin-bottom: 5px; display: block; font-weight: bold; }
+        h3 { margin-top: 0; font-size: 1.4em; color: #fff; border-bottom: 2px solid #555; padding-bottom: 10px; margin-bottom: 20px; }
+        label { color: #ccc; font-size: 0.9em; margin-bottom: 5px; display: block; font-weight: bold; }
         hr { border: 0; border-top: 1px solid #333; margin: 20px 0; }
 
-        .status-box { background: #111; padding: 15px; margin-bottom: 20px; border-radius: 5px; font-size: 0.95em; border: 1px solid #0ff; box-shadow: 0 0 10px #0ff; }
+        .status-box { background: #111; padding: 15px; margin-bottom: 20px; border-radius: 5px; font-size: 0.95em; border: 1px solid #555; }
         .status-box div { margin-bottom: 5px; }
         #status-time { color: #fff; font-weight: bold; }
-        #status-runners { color: #0ff; font-weight: bold; }
-        #status-message { color: #ff0; text-shadow: 0 0 5px #ff0; font-weight: bold; }
+        #status-runners { color: #0f0; font-weight: bold; }
+        #status-message { color: #ff0; font-weight: bold; }
         
-        .legend { margin-top: 20px; font-size: 0.85em; color: #ccc; text-shadow: none; line-height: 1.8; }
+        .legend { margin-top: 20px; font-size: 0.85em; color: #ccc; line-height: 1.8; }
         .legend span { display: inline-block; width: 12px; height: 12px; margin-right: 8px; border-radius: 2px; vertical-align: middle; }
     </style>
 </head>
@@ -54,7 +51,7 @@
         <label>逃げの数 (1/4はアホ): <input type="number" id="input-runners" value="40" min="1"></label>
         <label>最初の鬼の数: <input type="number" id="input-hunters" value="3" min="1"></label>
         <label>制限時間 (分): <input type="number" id="input-time" value="10" min="1"></label>
-        <button onclick="startGame()">ゲームスタート</button>
+        <button onclick="startGame()" style="border-color:#0f0; color:#0f0;">ゲームスタート</button>
     </div>
 
     <div id="control-panel" style="display:none;">
@@ -72,15 +69,15 @@
         <button class="btn-freeze" onclick="triggerFreezeGun()">冷凍銃を配置</button>
         
         <hr>
-        <button class="btn-reset" onclick="resetGame()">リセットして戻る</button>
+        <button onclick="resetGame()">リセットして戻る</button>
     </div>
 
     <div class="legend">
-        <span style="background:#0ff; box-shadow:0 0 5px #0ff;"></span>シアン: 逃げ（通常＆アホ）<br>
-        <span style="background:#f0f; box-shadow:0 0 5px #f0f;"></span>マゼンタ: 鬼<br>
-        <span style="background:#0f0; box-shadow:0 0 5px #0f0;"></span>緑枠: 安全エリア<br>
-        <span style="background:#ff0; box-shadow:0 0 5px #ff0;"></span>黄色: アイテム / ミッション鬼<br>
-        <span style="background:#0cf; box-shadow:0 0 5px #0cf;"></span>水色: 冷凍銃 / 冷凍された鬼
+        <span style="background:#0f0;"></span>緑: 逃げ（通常＆アホ）<br>
+        <span style="background:#f00;"></span>赤: 鬼（追加・ミッション含む）<br>
+        <span style="background:#0cf;"></span>水色: 冷凍された鬼<br>
+        <span style="background:#ff0;"></span>黄色: 冷凍銃(四角) / アイテム(丸)<br>
+        <span style="border:2px solid #0f0; background:none; box-sizing:border-box;"></span>緑枠/赤枠: 安全エリア
     </div>
 </div>
 
@@ -94,6 +91,7 @@ const MAP_SIZE = 1000;
 const RUNNER_SPEED = 1.2;
 const HUNTER_SPEED = 1.4; 
 const SIGHT_RANGE = 200;
+const SIGHT_RANGE_SQ = SIGHT_RANGE * SIGHT_RANGE; // 高速計算用
 const ENTITY_RADIUS = 6;
 const ITEM_RADIUS = 9;
 
@@ -108,6 +106,8 @@ const ctx = canvas.getContext('2d');
 
 // --- ユーティリティ ---
 const rand = (min, max) => Math.random() * (max - min) + min;
+// 距離の2乗を返す（平方根計算を省き、重くならないようにする）
+const distSq = (p1, p2) => (p1.x - p2.x) ** 2 + (p1.y - p2.y) ** 2;
 const dist = (p1, p2) => Math.hypot(p1.x - p2.x, p1.y - p2.y);
 
 // --- 初期化ロジック ---
@@ -122,7 +122,7 @@ function initGameState(numRunners, numHunters, timeLimitMinutes) {
     };
 
     let runners = [];
-    let numFools = Math.floor(numRunners / 4); // 4分の1をアホに設定
+    let numFools = Math.floor(numRunners / 4); 
     for(let i=0; i<numRunners; i++){
         runners.push({
             id: i,
@@ -132,7 +132,7 @@ function initGameState(numRunners, numHunters, timeLimitMinutes) {
             hasItem: false,
             inSafeZone: false,
             dead: false,
-            isFool: (i < numFools) // 最初の規定人数をアホフラグON（描画色は同じなので区別不能）
+            isFool: (i < numFools) 
         });
     }
 
@@ -214,10 +214,10 @@ function triggerMission() {
     if (!state || !state.isRunning || state.mission.active) return;
     state.mission.active = true;
     state.mission.phase = 1;
-    state.mission.timer = 30;
+    state.mission.timer = 30; // 30秒カウントダウン
     
-    // 生存している「通常」と「アホ」両方の総数分のアイテムが出る
     let aliveRunners = state.runners.filter(r => !r.dead);
+    // 今生存している逃げの数だけアイテムを設置
     aliveRunners.forEach((r, idx) => {
         state.items.push({
             id: idx,
@@ -272,8 +272,9 @@ function update() {
         if (state.mission.active) {
             state.mission.timer -= dt;
             if (state.mission.phase === 1 && state.mission.timer <= 0) {
+                // 発動から30秒後、フェーズ2（100体放出・分断）へ移行
                 state.mission.phase = 2;
-                state.mission.timer = 300;
+                state.mission.timer = 300; // 5分間
                 for(let i=0; i<100; i++) {
                     let angle = rand(0, Math.PI * 2);
                     let distance = rand(state.mission.safeZone.r + 50, MAP_SIZE/2);
@@ -315,17 +316,20 @@ function update() {
 
 function updateEntities(dt) {
     let aliveRunners = state.runners.filter(r => !r.dead);
+    const itemRadSq = (ITEM_RADIUS + ENTITY_RADIUS) ** 2;
 
     // 逃げの処理
     aliveRunners.forEach(r => {
-        // 安全エリア壁の処理 (分断中)
         if (state.mission.phase === 2) {
-            let dToCenter = dist(r, state.mission.safeZone);
-            if (r.inSafeZone && dToCenter > state.mission.safeZone.r - ENTITY_RADIUS) {
+            let dSqCenter = distSq(r, state.mission.safeZone);
+            let safeRSq = state.mission.safeZone.r ** 2;
+            
+            // 境界壁の押し戻し (厳密な計算でなくても簡易計算で重さ軽減)
+            if (r.inSafeZone && dSqCenter > (state.mission.safeZone.r - ENTITY_RADIUS)**2) {
                 let angle = Math.atan2(r.y - state.mission.safeZone.y, r.x - state.mission.safeZone.x);
                 r.x = state.mission.safeZone.x + Math.cos(angle) * (state.mission.safeZone.r - ENTITY_RADIUS);
                 r.y = state.mission.safeZone.y + Math.sin(angle) * (state.mission.safeZone.r - ENTITY_RADIUS);
-            } else if (!r.inSafeZone && dToCenter < state.mission.safeZone.r + ENTITY_RADIUS) {
+            } else if (!r.inSafeZone && dSqCenter < (state.mission.safeZone.r + ENTITY_RADIUS)**2) {
                 let angle = Math.atan2(r.y - state.mission.safeZone.y, r.x - state.mission.safeZone.x);
                 r.x = state.mission.safeZone.x + Math.cos(angle) * (state.mission.safeZone.r + ENTITY_RADIUS);
                 r.y = state.mission.safeZone.y + Math.sin(angle) * (state.mission.safeZone.r + ENTITY_RADIUS);
@@ -335,9 +339,9 @@ function updateEntities(dt) {
         // 冷凍銃の取得 (アホは取らない)
         if (!r.isFool) {
             for (let i = state.freezeGuns.length - 1; i >= 0; i--) {
-                if (dist(r, state.freezeGuns[i]) < ITEM_RADIUS + ENTITY_RADIUS) {
+                if (distSq(r, state.freezeGuns[i]) < itemRadSq) {
                     state.freezeGuns.splice(i, 1);
-                    let closeHunters = [...state.hunters].filter(h=>!h.frozen).sort((a,b) => dist(r, a) - dist(r, b));
+                    let closeHunters = [...state.hunters].filter(h=>!h.frozen).sort((a,b) => distSq(r, a) - distSq(r, b));
                     for(let j=0; j<Math.min(closeHunters.length, 10); j++) {
                         closeHunters[j].frozen = true;
                     }
@@ -349,7 +353,7 @@ function updateEntities(dt) {
         // ミッションアイテムの取得 (アホは取らない)
         if (state.mission.phase === 1 && !r.hasItem && !r.isFool) {
             for (let i = state.items.length - 1; i >= 0; i--) {
-                if (dist(r, state.items[i]) < ITEM_RADIUS + ENTITY_RADIUS) {
+                if (distSq(r, state.items[i]) < itemRadSq) {
                     r.hasItem = true;
                     state.items.splice(i, 1);
                     break;
@@ -360,44 +364,43 @@ function updateEntities(dt) {
         let speed = RUNNER_SPEED;
         let targetX = r.tx, targetY = r.ty;
         let nearestHunter = null;
-        let minDist = SIGHT_RANGE;
+        let minDistSq = SIGHT_RANGE_SQ;
         
         state.hunters.forEach(h => {
             if (h.frozen) return;
             if (r.inSafeZone && state.mission.phase > 0) return;
             if (state.mission.phase === 2) {
-                let hInSafe = dist(h, state.mission.safeZone) < state.mission.safeZone.r;
+                let hInSafe = distSq(h, state.mission.safeZone) < (state.mission.safeZone.r ** 2);
                 if (r.inSafeZone !== hInSafe) return;
             }
-            let d = dist(r, h);
-            if (d < minDist) { minDist = d; nearestHunter = h; }
+            let dSq = distSq(r, h);
+            if (dSq < minDistSq) { minDistSq = dSq; nearestHunter = h; }
         });
 
         if (nearestHunter) {
-            // 鬼から逃げる（アホも逃げることはする）
             let angle = Math.atan2(r.y - nearestHunter.y, r.x - nearestHunter.x);
             targetX = r.x + Math.cos(angle) * 100;
             targetY = r.y + Math.sin(angle) * 100;
         } else if (state.mission.phase === 1 && !r.isFool) {
-            // アホではない場合のみアイテムや安全エリアを目指す
             if (!r.hasItem && state.items.length > 0) {
-                let nearestItem = state.items.sort((a,b) => dist(r, a) - dist(r, b))[0];
+                let nearestItem = state.items.reduce((prev, curr) => distSq(r, curr) < distSq(r, prev) ? curr : prev);
                 targetX = nearestItem.x; targetY = nearestItem.y;
             } else if (r.hasItem) {
                 targetX = state.mission.safeZone.x;
                 targetY = state.mission.safeZone.y;
-                if (dist(r, state.mission.safeZone) < state.mission.safeZone.r) {
+                if (distSq(r, state.mission.safeZone) < state.mission.safeZone.r ** 2) {
                     r.inSafeZone = true;
                 }
             }
         } else {
-            // ランダムウォーク（アホはミッション中もずっとこれ）
-            if (dist(r, {x: r.tx, y: r.ty}) < 10 || Math.random() < 0.01) {
+            if (distSq(r, {x: r.tx, y: r.ty}) < 100 || Math.random() < 0.01) {
                 r.tx = rand(0, MAP_SIZE); r.ty = rand(0, MAP_SIZE);
             }
         }
         moveEntity(r, targetX, targetY, speed);
     });
+
+    const catchRadSq = (ENTITY_RADIUS * 2) ** 2;
 
     // 鬼の処理
     state.hunters.forEach(h => {
@@ -405,7 +408,7 @@ function updateEntities(dt) {
 
         if (state.box.active) {
             if (h.x > state.box.x && h.x < state.box.x + state.box.w && h.y > state.box.y && h.y < state.box.y + state.box.h) {
-                if (dist(h, {x:h.tx, y:h.ty}) < 10 || Math.random() < 0.05) {
+                if (distSq(h, {x:h.tx, y:h.ty}) < 100 || Math.random() < 0.05) {
                     h.tx = state.box.x + rand(10, state.box.w-10);
                     h.ty = state.box.y + rand(10, state.box.h-10);
                 }
@@ -415,13 +418,13 @@ function updateEntities(dt) {
         }
 
         if (state.mission.phase === 2) {
-            let dToCenter = dist(h, state.mission.safeZone);
-            let inSafe = dToCenter < state.mission.safeZone.r;
-            if (!inSafe && dToCenter < state.mission.safeZone.r + ENTITY_RADIUS) {
+            let dSqCenter = distSq(h, state.mission.safeZone);
+            let inSafe = dSqCenter < (state.mission.safeZone.r ** 2);
+            if (!inSafe && dSqCenter < (state.mission.safeZone.r + ENTITY_RADIUS)**2) {
                 let angle = Math.atan2(h.y - state.mission.safeZone.y, h.x - state.mission.safeZone.x);
                 h.x = state.mission.safeZone.x + Math.cos(angle) * (state.mission.safeZone.r + ENTITY_RADIUS);
                 h.y = state.mission.safeZone.y + Math.sin(angle) * (state.mission.safeZone.r + ENTITY_RADIUS);
-            } else if (inSafe && dToCenter > state.mission.safeZone.r - ENTITY_RADIUS) {
+            } else if (inSafe && dSqCenter > (state.mission.safeZone.r - ENTITY_RADIUS)**2) {
                  let angle = Math.atan2(h.y - state.mission.safeZone.y, h.x - state.mission.safeZone.x);
                 h.x = state.mission.safeZone.x + Math.cos(angle) * (state.mission.safeZone.r - ENTITY_RADIUS);
                 h.y = state.mission.safeZone.y + Math.sin(angle) * (state.mission.safeZone.r - ENTITY_RADIUS);
@@ -429,23 +432,24 @@ function updateEntities(dt) {
         }
 
         let nearestRunner = null;
-        let minDist = SIGHT_RANGE;
+        let minDistSq = SIGHT_RANGE_SQ;
+        
         aliveRunners.forEach(r => {
             if (r.inSafeZone && state.mission.phase > 0) return;
             if (state.mission.phase === 2) {
-                let hInSafe = dist(h, state.mission.safeZone) < state.mission.safeZone.r;
-                let rInSafe = dist(r, state.mission.safeZone) < state.mission.safeZone.r;
+                let hInSafe = distSq(h, state.mission.safeZone) < (state.mission.safeZone.r ** 2);
+                let rInSafe = distSq(r, state.mission.safeZone) < (state.mission.safeZone.r ** 2);
                 if (hInSafe !== rInSafe) return;
             }
-            let d = dist(h, r);
-            if (d < minDist) { minDist = d; nearestRunner = r; }
-            if (d < (ENTITY_RADIUS + ENTITY_RADIUS)) { r.dead = true; } // 確保
+            let dSq = distSq(h, r);
+            if (dSq < minDistSq) { minDistSq = dSq; nearestRunner = r; }
+            if (dSq < catchRadSq) { r.dead = true; } // 確保
         });
 
         if (nearestRunner) {
             h.tx = nearestRunner.x; h.ty = nearestRunner.y;
         } else {
-            if (dist(h, {x: h.tx, y: h.ty}) < 10 || Math.random() < 0.01) {
+            if (distSq(h, {x: h.tx, y: h.ty}) < 100 || Math.random() < 0.01) {
                 h.tx = rand(0, MAP_SIZE); h.ty = rand(0, MAP_SIZE);
             }
         }
@@ -453,7 +457,6 @@ function updateEntities(dt) {
     });
 }
 
-// エンティティの移動 (障害物判定削除済み)
 function moveEntity(e, tx, ty, speed) {
     let angle = Math.atan2(ty - e.y, tx - e.x);
     let nx = e.x + Math.cos(angle) * speed;
@@ -467,30 +470,25 @@ function moveEntity(e, tx, ty, speed) {
     e.x = nx; e.y = ny;
 }
 
-// --- 描画処理 ---
+// --- 描画処理 (バッチ描画で軽量化) ---
 function draw() {
     ctx.clearRect(0, 0, canvas.width, canvas.height);
 
     if (!state) return;
 
-    ctx.shadowColor = '#0ff';
-    ctx.shadowBlur = 10;
     ctx.lineWidth = 1;
 
     // グリッド
-    ctx.strokeStyle = '#111';
+    ctx.strokeStyle = '#222';
+    ctx.beginPath();
     for(let i=0; i<MAP_SIZE; i+=100) {
-        ctx.beginPath(); ctx.moveTo(i, 0); ctx.lineTo(i, MAP_SIZE); ctx.stroke();
-        ctx.beginPath(); ctx.moveTo(0, i); ctx.lineTo(MAP_SIZE, i); ctx.stroke();
+        ctx.moveTo(i, 0); ctx.lineTo(i, MAP_SIZE);
+        ctx.moveTo(0, i); ctx.lineTo(MAP_SIZE, i);
     }
-
-    ctx.shadowBlur = 0;
+    ctx.stroke();
 
     // 安全エリア
     if (state.mission.active) {
-        ctx.shadowColor = state.mission.phase === 2 ? '#f00' : '#0f0';
-        ctx.shadowBlur = 15;
-        
         ctx.beginPath();
         ctx.arc(state.mission.safeZone.x, state.mission.safeZone.y, state.mission.safeZone.r, 0, Math.PI*2);
         ctx.fillStyle = 'rgba(0, 255, 0, 0.05)';
@@ -502,8 +500,6 @@ function draw() {
 
     // 鬼BOX
     if (state.box.active) {
-        ctx.shadowColor = '#fff';
-        ctx.shadowBlur = 10;
         ctx.strokeStyle = '#fff';
         ctx.lineWidth = 3;
         ctx.strokeRect(state.box.x, state.box.y, state.box.w, state.box.h);
@@ -514,40 +510,64 @@ function draw() {
         ctx.fillText(Math.ceil(state.box.timer), state.box.x + state.box.w/2 - 12, state.box.y + state.box.h/2 + 8);
     }
 
-    // アイテム
-    state.items.forEach(item => {
-        ctx.shadowColor = '#ff0';
-        ctx.shadowBlur = 10;
+    // アイテム (黄色い丸)
+    if (state.items.length > 0) {
         ctx.fillStyle = '#ff0';
-        ctx.beginPath(); ctx.arc(item.x, item.y, ITEM_RADIUS, 0, Math.PI*2); ctx.fill();
-    });
+        ctx.beginPath();
+        state.items.forEach(item => {
+            ctx.moveTo(item.x + ITEM_RADIUS, item.y);
+            ctx.arc(item.x, item.y, ITEM_RADIUS, 0, Math.PI*2);
+        });
+        ctx.fill();
+    }
 
-    // 冷凍銃
-    state.freezeGuns.forEach(gun => {
-        ctx.shadowColor = '#0cf';
-        ctx.shadowBlur = 10;
-        ctx.fillStyle = '#0cf';
-        ctx.fillRect(gun.x - 8, gun.y - 8, 16, 16);
-    });
+    // 冷凍銃 (黄色い四角)
+    if (state.freezeGuns.length > 0) {
+        ctx.fillStyle = '#ff0';
+        state.freezeGuns.forEach(gun => {
+            ctx.fillRect(gun.x - 8, gun.y - 8, 16, 16);
+        });
+    }
 
-    // 逃げ (アホも通常も色は同じ)
+    // 逃げの描画 (緑色で一括描画)
+    ctx.fillStyle = '#0f0';
+    ctx.beginPath();
     state.runners.forEach(r => {
         if (r.dead) return;
-        let color = r.hasItem ? '#ff0' : '#0ff';
-        ctx.shadowColor = color;
-        ctx.shadowBlur = 10;
-        ctx.fillStyle = color;
-        ctx.beginPath(); ctx.arc(r.x, r.y, ENTITY_RADIUS, 0, Math.PI*2); ctx.fill();
+        ctx.moveTo(r.x + ENTITY_RADIUS, r.y);
+        ctx.arc(r.x, r.y, ENTITY_RADIUS, 0, Math.PI*2);
     });
+    ctx.fill();
 
-    // 鬼
-    state.hunters.forEach(h => {
-        let color = h.frozen ? '#0cf' : (h.isMission ? '#ff0' : '#f0f');
-        ctx.shadowColor = color;
-        ctx.shadowBlur = 10;
-        ctx.fillStyle = color;
-        ctx.beginPath(); ctx.arc(h.x, h.y, ENTITY_RADIUS, 0, Math.PI*2); ctx.fill();
+    // アイテムを持っている逃げのマーカー (黒い点)
+    ctx.fillStyle = '#000';
+    ctx.beginPath();
+    state.runners.forEach(r => {
+        if (r.dead || !r.hasItem) return;
+        ctx.moveTo(r.x + 3, r.y);
+        ctx.arc(r.x, r.y, 3, 0, Math.PI*2);
     });
+    ctx.fill();
+
+    // 鬼の描画 (赤色で一括描画)
+    ctx.fillStyle = '#f00';
+    ctx.beginPath();
+    state.hunters.forEach(h => {
+        if (h.frozen) return;
+        ctx.moveTo(h.x + ENTITY_RADIUS, h.y);
+        ctx.arc(h.x, h.y, ENTITY_RADIUS, 0, Math.PI*2);
+    });
+    ctx.fill();
+
+    // 冷凍された鬼 (水色で一括描画)
+    ctx.fillStyle = '#0cf';
+    ctx.beginPath();
+    state.hunters.forEach(h => {
+        if (!h.frozen) return;
+        ctx.moveTo(h.x + ENTITY_RADIUS, h.y);
+        ctx.arc(h.x, h.y, ENTITY_RADIUS, 0, Math.PI*2);
+    });
+    ctx.fill();
 }
 
 // --- UI更新 ---
@@ -566,14 +586,13 @@ function updateUI() {
         timeEl.innerText = `残り時間: ${timeStr}`;
     } else {
         timeEl.innerText = `終了: ${state.gameResult}`;
-        // 終了時にボタンを切り替えずにそのまま結果を表示し続ける
     }
 
     let alive = state.runners.filter(r => !r.dead).length;
     document.getElementById('status-runners').innerText = `生存者: ${alive} / ${state.runners.length}`;
 }
 
-// 初期状態は描画のみ行う（空のキャンバス）
+// 初期状態は描画のみ行う
 draw();
 </script>
 </body>
