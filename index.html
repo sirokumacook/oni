@@ -91,7 +91,7 @@ const MAP_SIZE = 1000;
 const RUNNER_SPEED = 1.2;
 const HUNTER_SPEED = 1.4; 
 const SIGHT_RANGE = 200;
-const SIGHT_RANGE_SQ = SIGHT_RANGE * SIGHT_RANGE; // 高速計算用
+const SIGHT_RANGE_SQ = SIGHT_RANGE * SIGHT_RANGE; 
 const ENTITY_RADIUS = 6;
 const ITEM_RADIUS = 9;
 
@@ -106,7 +106,6 @@ const ctx = canvas.getContext('2d');
 
 // --- ユーティリティ ---
 const rand = (min, max) => Math.random() * (max - min) + min;
-// 距離の2乗を返す（平方根計算を省き、重くならないようにする）
 const distSq = (p1, p2) => (p1.x - p2.x) ** 2 + (p1.y - p2.y) ** 2;
 const dist = (p1, p2) => Math.hypot(p1.x - p2.x, p1.y - p2.y);
 
@@ -148,7 +147,7 @@ function initGameState(numRunners, numHunters, timeLimitMinutes) {
         });
     }
 
-    let safeR = 200;
+    let safeR = Math.floor(200 / 6); // エリアを1/6に縮小 (約33)
     state = {
         isRunning: true,
         gameResult: null,
@@ -217,7 +216,6 @@ function triggerMission() {
     state.mission.timer = 30; // 30秒カウントダウン
     
     let aliveRunners = state.runners.filter(r => !r.dead);
-    // 今生存している逃げの数だけアイテムを設置
     aliveRunners.forEach((r, idx) => {
         state.items.push({
             id: idx,
@@ -271,10 +269,10 @@ function update() {
 
         if (state.mission.active) {
             state.mission.timer -= dt;
+            
             if (state.mission.phase === 1 && state.mission.timer <= 0) {
-                // 発動から30秒後、フェーズ2（100体放出・分断）へ移行
                 state.mission.phase = 2;
-                state.mission.timer = 300; // 5分間
+                state.mission.timer = 60; // 5分間から1分間に変更
                 for(let i=0; i<100; i++) {
                     let angle = rand(0, Math.PI * 2);
                     let distance = rand(state.mission.safeZone.r + 50, MAP_SIZE/2);
@@ -286,14 +284,24 @@ function update() {
                         frozen: false, isMission: true
                     });
                 }
-                showMessage("エリア分断！鬼100体放出！外に取り残された者は5分間耐えろ！");
-            } else if (state.mission.phase === 2 && state.mission.timer <= 0) {
-                state.mission.active = false;
-                state.mission.phase = 0;
-                state.hunters = state.hunters.filter(h => !h.isMission);
-                state.runners.forEach(r => { r.hasItem = false; r.inSafeZone = false; });
-                state.items = [];
-                showMessage("ミッション終了！鬼100体が消滅し、安全エリアが解除されました。");
+                showMessage("エリア分断！鬼100体放出！外に取り残された者は1分間耐えろ！");
+            } 
+            else if (state.mission.phase === 2) {
+                // 安全エリアの外にいる逃げの数をカウント
+                let aliveRunners = state.runners.filter(r => !r.dead);
+                let outsideCount = aliveRunners.filter(r => !r.inSafeZone).length;
+                
+                // 時間切れ、もしくは外にいる人が0人（全滅したか全員入れたか）で終了
+                if (state.mission.timer <= 0 || outsideCount === 0) {
+                    state.mission.active = false;
+                    state.mission.phase = 0;
+                    state.hunters = state.hunters.filter(h => !h.isMission);
+                    state.runners.forEach(r => { r.hasItem = false; r.inSafeZone = false; });
+                    state.items = [];
+                    
+                    let reason = outsideCount === 0 ? "外の逃げが全滅し、" : "1分経過し、";
+                    showMessage(`ミッション終了！${reason}鬼100体とエリアが消滅しました。`);
+                }
             }
         }
 
@@ -322,9 +330,6 @@ function updateEntities(dt) {
     aliveRunners.forEach(r => {
         if (state.mission.phase === 2) {
             let dSqCenter = distSq(r, state.mission.safeZone);
-            let safeRSq = state.mission.safeZone.r ** 2;
-            
-            // 境界壁の押し戻し (厳密な計算でなくても簡易計算で重さ軽減)
             if (r.inSafeZone && dSqCenter > (state.mission.safeZone.r - ENTITY_RADIUS)**2) {
                 let angle = Math.atan2(r.y - state.mission.safeZone.y, r.x - state.mission.safeZone.x);
                 r.x = state.mission.safeZone.x + Math.cos(angle) * (state.mission.safeZone.r - ENTITY_RADIUS);
@@ -336,7 +341,6 @@ function updateEntities(dt) {
             }
         }
 
-        // 冷凍銃の取得 (アホは取らない)
         if (!r.isFool) {
             for (let i = state.freezeGuns.length - 1; i >= 0; i--) {
                 if (distSq(r, state.freezeGuns[i]) < itemRadSq) {
@@ -350,7 +354,6 @@ function updateEntities(dt) {
             }
         }
 
-        // ミッションアイテムの取得 (アホは取らない)
         if (state.mission.phase === 1 && !r.hasItem && !r.isFool) {
             for (let i = state.items.length - 1; i >= 0; i--) {
                 if (distSq(r, state.items[i]) < itemRadSq) {
@@ -402,7 +405,6 @@ function updateEntities(dt) {
 
     const catchRadSq = (ENTITY_RADIUS * 2) ** 2;
 
-    // 鬼の処理
     state.hunters.forEach(h => {
         if (h.frozen) return;
 
@@ -443,7 +445,7 @@ function updateEntities(dt) {
             }
             let dSq = distSq(h, r);
             if (dSq < minDistSq) { minDistSq = dSq; nearestRunner = r; }
-            if (dSq < catchRadSq) { r.dead = true; } // 確保
+            if (dSq < catchRadSq) { r.dead = true; } 
         });
 
         if (nearestRunner) {
@@ -470,7 +472,7 @@ function moveEntity(e, tx, ty, speed) {
     e.x = nx; e.y = ny;
 }
 
-// --- 描画処理 (バッチ描画で軽量化) ---
+// --- 描画処理 ---
 function draw() {
     ctx.clearRect(0, 0, canvas.width, canvas.height);
 
@@ -529,23 +531,13 @@ function draw() {
         });
     }
 
-    // 逃げの描画 (緑色で一括描画)
+    // 逃げの描画 (アイテムの有無に関わらず緑色で一括描画)
     ctx.fillStyle = '#0f0';
     ctx.beginPath();
     state.runners.forEach(r => {
         if (r.dead) return;
         ctx.moveTo(r.x + ENTITY_RADIUS, r.y);
         ctx.arc(r.x, r.y, ENTITY_RADIUS, 0, Math.PI*2);
-    });
-    ctx.fill();
-
-    // アイテムを持っている逃げのマーカー (黒い点)
-    ctx.fillStyle = '#000';
-    ctx.beginPath();
-    state.runners.forEach(r => {
-        if (r.dead || !r.hasItem) return;
-        ctx.moveTo(r.x + 3, r.y);
-        ctx.arc(r.x, r.y, 3, 0, Math.PI*2);
     });
     ctx.fill();
 
