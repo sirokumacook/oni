@@ -40,7 +40,7 @@
         .status-box div { margin-bottom: 5px; }
         #status-time { color: #fff; font-weight: bold; }
         #status-runners { color: #0f0; font-weight: bold; }
-        #status-message { color: #ff0; font-weight: bold; }
+        #status-message { color: #ff0; font-weight: bold; min-height: 40px; }
         
         .legend { margin-top: 20px; font-size: 0.85em; color: #ccc; line-height: 1.8; }
         .legend span { display: inline-block; width: 12px; height: 12px; margin-right: 8px; border-radius: 2px; vertical-align: middle; }
@@ -51,7 +51,7 @@
 <div id="ui">
     <h3>設定パネル</h3>
     <div id="setup-panel">
-        <label>逃げの数 (1/4はアホ): <input type="number" id="input-runners" value="40" min="1"></label>
+        <label>逃げの数 (半数は強欲, 1/4はアホ): <input type="number" id="input-runners" value="40" min="1"></label>
         <label>最初の鬼の数: <input type="number" id="input-hunters" value="3" min="1"></label>
         <label>制限時間 (分): <input type="number" id="input-time" value="10" min="1"></label>
         <button onclick="startGame()" style="border-color:#0f0; color:#0f0;">ゲームスタート</button>
@@ -77,10 +77,10 @@
     </div>
 
     <div class="legend">
-        <span style="background:#0f0;"></span>緑: 逃げ（通常＆アホ）<br>
+        <span style="background:#0f0;"></span>緑: 逃げ<br>
         <span style="background:linear-gradient(45deg, red, yellow, lime, cyan, blue, magenta);"></span>虹: 冷凍銃持ちの逃げ<br>
-        <span style="background:#f00;"></span>赤: 鬼（追加・ミッション含む）<br>
-        <span style="background:#888;"></span>灰: クールダウン/待機中の鬼<br>
+        <span style="background:#f00;"></span>赤: 鬼<br>
+        <span style="background:#888;"></span>灰: クールダウン/停止中の鬼<br>
         <span style="background:#0cf;"></span>水色: 冷凍された鬼<br>
         <span style="background:#ff0;"></span>黄色: 冷凍銃(四角) / アイテム(丸)<br>
         <span style="border:2px solid #0f0; background:none; box-sizing:border-box;"></span>緑/赤枠: 安全エリア
@@ -94,17 +94,14 @@
 <script>
 // --- シミュレーション定数 ---
 const MAP_SIZE = 1000; 
-
-// --- サイズ設定 (1/3) ---
 const ENTITY_RADIUS = 2;
 const ITEM_RADIUS = 2;
 
-// --- スピードと視界の設定 ---
-const RUNNER_SPEED = 1.4;        // 逃げの基本速度
-const HUNTER_PATROL_SPEED = 0.6; // 探す速度（遅め）
-const HUNTER_CHASE_SPEED = 2.4;  // 走る速度（逃げより速い）
-const SIGHT_RANGE_HUNTER = 80;   // 鬼の視界（狭い）
-const SIGHT_RANGE_RUNNER = 300;  // 逃げの視界（広範囲）
+const RUNNER_SPEED = 1.4;        
+const HUNTER_PATROL_SPEED = 0.6; 
+const HUNTER_CHASE_SPEED = 2.4;  
+const SIGHT_RANGE_HUNTER = 80;   
+const SIGHT_RANGE_RUNNER = 150;  // 視界を狭く調整
 const SIGHT_RANGE_HUNTER_SQ = SIGHT_RANGE_HUNTER ** 2; 
 const SIGHT_RANGE_RUNNER_SQ = SIGHT_RANGE_RUNNER ** 2;
 
@@ -116,7 +113,6 @@ canvas.width = MAP_SIZE;
 canvas.height = MAP_SIZE;
 const ctx = canvas.getContext('2d');
 
-// --- ユーティリティ ---
 const rand = (min, max) => Math.random() * (max - min) + min;
 const distSq = (p1, p2) => (p1.x - p2.x) ** 2 + (p1.y - p2.y) ** 2;
 
@@ -138,27 +134,27 @@ function initGameState(numRunners, numHunters, timeLimitMinutes) {
     let boxX = Math.max(0, Math.min(MAP_SIZE - boxW, spawnPos.x - boxW/2));
     let boxY = Math.max(0, Math.min(MAP_SIZE - boxH, spawnPos.y - boxH/2));
 
-    let box = {
-        x: boxX, y: boxY,
-        w: boxW, h: boxH,
-        active: true, timer: 30
-    };
+    let box = { x: boxX, y: boxY, w: boxW, h: boxH, active: true, timer: 30 };
 
     let runners = [];
-    let numFools = Math.floor(numRunners / 4); 
+    let numFools = Math.floor(numRunners / 4); // 1/4がアイテム無視
+    let numGreedy = Math.floor(numRunners / 2); // 1/2がアイテム優先
+
     for(let i=0; i<numRunners; i++){
+        let isFool = (i < numFools);
+        let isGreedy = (i >= numFools && i < numFools + numGreedy);
+
         runners.push({
             id: i,
             x: rand(ENTITY_RADIUS, MAP_SIZE - ENTITY_RADIUS),
             y: rand(ENTITY_RADIUS, MAP_SIZE - ENTITY_RADIUS),
             tx: rand(0, MAP_SIZE), ty: rand(0, MAP_SIZE),
-            hasItem: false,
-            inSafeZone: false,
-            dead: false,
-            isFool: (i < numFools),
+            hasItem: false, inSafeZone: false, dead: false,
+            isFool: isFool,
+            isGreedy: isGreedy,
             freezeAmmo: 0,
-            isEvacuating: false, // 復活ミッション用：端に避難
-            isChallenger: false  // 復活ミッション用：下から上へ
+            isHidden: false,       // 復活M中の生存者待避用
+            isChallenger: false    // 復活Mの挑戦者フラグ
         });
     }
 
@@ -166,38 +162,24 @@ function initGameState(numRunners, numHunters, timeLimitMinutes) {
     for(let i=0; i<numHunters; i++){
         hunters.push({
             id: i,
-            x: box.x + rand(10, box.w - 10),
-            y: box.y + rand(10, box.h - 10),
+            x: box.x + rand(10, box.w - 10), y: box.y + rand(10, box.h - 10),
             tx: box.x + box.w/2, ty: box.y + box.h/2,
-            frozen: false,
-            isMission: false,
-            cooldown: 0 // 捕まえた後の3秒探索状態用
+            frozen: false, isMission: false, cooldown: 0, revivalStop: 0
         });
     }
 
     let safeR = Math.floor(200 / 6); 
     state = {
-        isRunning: true,
-        gameResult: null,
-        totalTime: timeLimitMinutes * 60,
-        timeLeft: timeLimitMinutes * 60,
-        box: box,
-        runners: runners,
-        hunters: hunters,
-        items: [],
-        freezeGuns: [],
-        mission: {
-            active: false, phase: 0, timer: 0,
-            safeZone: { x: MAP_SIZE/2, y: MAP_SIZE/2, r: safeR }
-        },
-        revival: { // 復活ミッション管理
-            active: false, phase: 0
-        },
+        isRunning: true, gameResult: null,
+        totalTime: timeLimitMinutes * 60, timeLeft: timeLimitMinutes * 60,
+        box: box, runners: runners, hunters: hunters,
+        items: [], freezeGuns: [],
+        mission: { active: false, phase: 0, timer: 0, safeZone: { x: MAP_SIZE/2, y: MAP_SIZE/2, r: safeR } },
+        revival: { active: false, phase: 0 },
         lastUpdate: Date.now()
     };
 }
 
-// --- UI アクション ---
 function startGame() {
     let r = parseInt(document.getElementById('input-runners').value) || 40;
     let h = parseInt(document.getElementById('input-hunters').value) || 3;
@@ -229,7 +211,7 @@ function addHuntersBtn() {
             id: Date.now() + i,
             x: sp.x + rand(-15, 15), y: sp.y + rand(-15, 15),
             tx: sp.x, ty: sp.y,
-            frozen: false, isMission: false, cooldown: 0
+            frozen: false, isMission: false, cooldown: 0, revivalStop: 0
         });
     }
     showMessage(`エリアの端から鬼が ${count} 体出現しました！`);
@@ -237,9 +219,7 @@ function addHuntersBtn() {
 
 function triggerMission() {
     if (!state || !state.isRunning || state.mission.active) return;
-    state.mission.active = true;
-    state.mission.phase = 1;
-    state.mission.timer = 30; 
+    state.mission.active = true; state.mission.phase = 1; state.mission.timer = 30; 
     let aliveRunners = state.runners.filter(r => !r.dead);
     aliveRunners.forEach((r, idx) => {
         state.items.push({ id: idx, x: rand(50, MAP_SIZE - 50), y: rand(50, MAP_SIZE - 50) });
@@ -249,11 +229,7 @@ function triggerMission() {
 
 function triggerFreezeGun() {
     if (!state || !state.isRunning) return;
-    // 鬼を出現させる処理は削除し、冷凍銃のみ配置
-    state.freezeGuns.push({
-        x: rand(50, MAP_SIZE - 50),
-        y: rand(50, MAP_SIZE - 50)
-    });
+    state.freezeGuns.push({ x: rand(50, MAP_SIZE - 50), y: rand(50, MAP_SIZE - 50) });
     showMessage("冷凍銃が出現しました！");
 }
 
@@ -266,22 +242,26 @@ function triggerRevival() {
     }
     
     state.revival.active = true;
-    state.revival.phase = 1; // フェーズ1: 退避
-    
-    // 生存者に退避先（一番近い端）をセット
+    state.revival.phase = 2; 
+
+    // 生存者は画面から隠れる
     state.runners.forEach(r => {
         if (!r.dead) {
-            r.isEvacuating = true;
-            let dLeft = r.x; let dRight = MAP_SIZE - r.x;
-            let dTop = r.y; let dBottom = MAP_SIZE - r.y;
-            let minD = Math.min(dLeft, dRight, dTop, dBottom);
-            if (minD === dLeft) { r.tx = 0; r.ty = r.y; }
-            else if (minD === dRight) { r.tx = MAP_SIZE; r.ty = r.y; }
-            else if (minD === dTop) { r.tx = r.x; r.ty = 0; }
-            else { r.tx = r.x; r.ty = MAP_SIZE; }
+            r.isHidden = true; 
+        } else {
+            // 捕まっている者は下から出現するチャレンジャーへ
+            r.dead = false;
+            r.isChallenger = true;
+            r.x = rand(10, MAP_SIZE - 10);
+            r.y = MAP_SIZE - 5; 
+            r.tx = r.x; r.ty = -100; // 上を目指す
+            r.hasItem = false; r.freezeAmmo = 0; r.inSafeZone = false; r.isHidden = false;
         }
     });
-    showMessage("復活ミッション発動！生存者はエリア端に一時退避せよ！鬼は停止します。");
+
+    // 鬼は3秒停止
+    state.hunters.forEach(h => { h.revivalStop = 3.0; });
+    showMessage("復活ミッション発動！生存者は待避しました。鬼が3秒間停止します。チャレンジャーは上を目指せ！");
 }
 
 function showMessage(msg) {
@@ -290,7 +270,7 @@ function showMessage(msg) {
     setTimeout(() => { if(el.innerText === msg) el.innerText = ""; }, 5000);
 }
 
-// --- メインループとロジック ---
+// --- メインループ ---
 function update() {
     if (!state) return;
     let now = Date.now();
@@ -298,7 +278,6 @@ function update() {
     state.lastUpdate = now;
 
     if (state.isRunning) {
-        // BOXタイマーと全体制限時間の切り分け
         if (state.box.active) {
             state.box.timer -= dt;
             if (state.box.timer <= 0) {
@@ -306,32 +285,29 @@ function update() {
                 showMessage("鬼がBOXから放出されました！");
             }
         } else {
-            // 最初の30秒が終わってから制限時間を減らす
             state.timeLeft -= dt;
         }
 
-        // --- ミッションの進行 ---
+        // --- ミッション ---
         if (state.mission.active) {
             state.mission.timer -= dt;
             if (state.mission.phase === 1 && state.mission.timer <= 0) {
-                state.mission.phase = 2;
-                state.mission.timer = 60;
+                state.mission.phase = 2; state.mission.timer = 60;
                 let sp = getEdgeSpawnPoint();
                 for(let i=0; i<100; i++) {
                     state.hunters.push({
                         id: 'm_' + Date.now() + i,
                         x: sp.x + rand(-30, 30), y: sp.y + rand(-30, 30),
                         tx: sp.x, ty: sp.y,
-                        frozen: false, isMission: true, cooldown: 0
+                        frozen: false, isMission: true, cooldown: 0, revivalStop: 0
                     });
                 }
                 showMessage("エリア分断！端から鬼100体が侵入！外の者は1分間耐えろ！");
             } else if (state.mission.phase === 2) {
-                let aliveRunners = state.runners.filter(r => !r.dead);
+                let aliveRunners = state.runners.filter(r => !r.dead && !r.isHidden);
                 let outsideCount = aliveRunners.filter(r => !r.inSafeZone).length;
                 if (state.mission.timer <= 0 || outsideCount === 0) {
-                    state.mission.active = false;
-                    state.mission.phase = 0;
+                    state.mission.active = false; state.mission.phase = 0;
                     state.hunters = state.hunters.filter(h => !h.isMission);
                     state.runners.forEach(r => { r.hasItem = false; r.inSafeZone = false; });
                     state.items = [];
@@ -341,42 +317,17 @@ function update() {
             }
         }
 
-        // --- 復活ミッションの進行 ---
-        if (state.revival.active) {
-            if (state.revival.phase === 1) {
-                // 退避完了チェック
-                let allEvacuated = true;
-                state.runners.forEach(r => {
-                    if (!r.dead && r.isEvacuating) {
-                        // 端付近(余裕をもって10px)か判定
-                        if (r.x > 10 && r.x < MAP_SIZE - 10 && r.y > 10 && r.y < MAP_SIZE - 10) {
-                            allEvacuated = false;
-                        }
-                    }
+        // --- 復活ミッション ---
+        if (state.revival.active && state.revival.phase === 2) {
+            let activeChallengers = state.runners.filter(r => r.isChallenger && !r.dead);
+            if (activeChallengers.length === 0) {
+                state.revival.active = false;
+                state.revival.phase = 0;
+                // 隠れていた生存者を戻す
+                state.runners.forEach(r => { 
+                    if (r.isHidden) r.isHidden = false; 
                 });
-                if (allEvacuated) {
-                    state.revival.phase = 2;
-                    state.runners.forEach(r => {
-                        if (r.dead) {
-                            r.dead = false;
-                            r.isChallenger = true;
-                            r.x = rand(10, MAP_SIZE - 10);
-                            r.y = MAP_SIZE - 5; // 下から
-                            r.tx = r.x; r.ty = -100; // 上を目指す
-                            r.hasItem = false; r.freezeAmmo = 0; r.inSafeZone = false;
-                        }
-                    });
-                    showMessage("全員退避完了。鬼が動き出します！捕まっていた者は上を目指せ！");
-                }
-            } else if (state.revival.phase === 2) {
-                let activeChallengers = state.runners.filter(r => r.isChallenger);
-                if (activeChallengers.length === 0) {
-                    state.revival.active = false;
-                    state.revival.phase = 0;
-                    // 通常に戻す
-                    state.runners.forEach(r => { r.isEvacuating = false; r.isChallenger = false; });
-                    showMessage("復活チャレンジ終了！ゲームを通常再開します。");
-                }
+                showMessage("復活チャレンジ終了！生存者が戻り、ゲームを再開します。");
             }
         }
 
@@ -400,23 +351,13 @@ function update() {
 function updateEntities(dt) {
     let aliveRunners = state.runners.filter(r => !r.dead);
     const itemRadSq = (ITEM_RADIUS + ENTITY_RADIUS) ** 2;
-    const freezeFireDistSq = 400; // 冷凍銃を発射する射程距離 (20px)
+    const freezeFireDistSq = 400; // 冷凍銃の発射距離
 
     // 逃げの処理
     aliveRunners.forEach(r => {
-        
-        // --- 状態による行動制限 ---
-        if (r.isEvacuating && state.revival.phase === 1) {
-            // フェーズ1中は鬼を無視してただ端へ向かう
-            moveEntity(r, r.tx, r.ty, RUNNER_SPEED);
-            return;
-        }
-        if (r.isEvacuating && state.revival.phase === 2) {
-            // フェーズ2で待機中、または復活済みの待機
-            return; 
-        }
+        if (r.isHidden) return; // 待避中の逃げは処理をスキップ
 
-        // --- エリア分断の壁 ---
+        // --- エリア分断壁 ---
         if (state.mission.phase === 2 && !r.isChallenger) {
             let dSqCenter = distSq(r, state.mission.safeZone);
             if (r.inSafeZone && dSqCenter > (state.mission.safeZone.r - ENTITY_RADIUS)**2) {
@@ -430,9 +371,8 @@ function updateEntities(dt) {
             }
         }
 
-        // --- アイテム取得 (アホは取らない) ---
+        // --- アイテム取得 ---
         if (!r.isFool) {
-            // 冷凍銃 (拾うと弾10発装填)
             for (let i = state.freezeGuns.length - 1; i >= 0; i--) {
                 if (distSq(r, state.freezeGuns[i]) < itemRadSq) {
                     state.freezeGuns.splice(i, 1);
@@ -440,27 +380,23 @@ function updateEntities(dt) {
                     showMessage("逃げが冷凍銃をゲット！鬼が近づくと自動で冷凍させます。");
                 }
             }
-            // ミッションアイテム
             if (state.mission.phase === 1 && !r.hasItem) {
                 for (let i = state.items.length - 1; i >= 0; i--) {
                     if (distSq(r, state.items[i]) < itemRadSq) {
-                        r.hasItem = true;
-                        state.items.splice(i, 1);
-                        break;
+                        r.hasItem = true; state.items.splice(i, 1); break;
                     }
                 }
             }
         }
 
-        // --- 索敵と逃走 ---
+        // --- 行動決定 ---
         let targetX = r.tx, targetY = r.ty;
         let nearestHunter = null;
-        let minDistSq = SIGHT_RANGE_RUNNER_SQ; // 広範囲
+        let minDistSqHunter = SIGHT_RANGE_RUNNER_SQ;
         
+        // 1. 鬼を探す
         state.hunters.forEach(h => {
-            if (h.frozen) return;
-            if (state.revival.active && state.revival.phase === 1) return; // 鬼が停止中
-
+            if (h.frozen || h.revivalStop > 0) return;
             if (r.inSafeZone && state.mission.phase > 0 && !r.isChallenger) return;
             if (state.mission.phase === 2 && !r.isChallenger) {
                 let hInSafe = distSq(h, state.mission.safeZone) < (state.mission.safeZone.r ** 2);
@@ -469,49 +405,67 @@ function updateEntities(dt) {
             
             let dSq = distSq(r, h);
             
-            // 冷凍銃の発射 (弾があり、鬼が近ければ自動冷凍)
+            // 冷凍銃の自動発射
             if (r.freezeAmmo > 0 && dSq < freezeFireDistSq && !h.frozen) {
                 h.frozen = true;
                 r.freezeAmmo--;
-                return; // 凍らせたので脅威リストからは外す
+                return; 
             }
-
-            if (dSq < minDistSq) { minDistSq = dSq; nearestHunter = h; }
+            if (dSq < minDistSqHunter) { minDistSqHunter = dSq; nearestHunter = h; }
         });
 
-        // --- 行動決定 ---
         if (r.isChallenger) {
-            targetX = r.x; targetY = -100; // 上を目指す
+            // 復活チャレンジャーは上を目指す
+            targetX = r.x; targetY = r.y - 100; 
             if (nearestHunter) {
                 let angle = Math.atan2(r.y - nearestHunter.y, r.x - nearestHunter.x);
                 targetX = r.x + Math.cos(angle) * 100;
                 targetY = r.y + Math.sin(angle) * 100;
+                targetY -= 50; // 上へ逃げるバイアス
             }
-            // 上端付近に到達したらクリア
             if (r.y <= 10) {
-                r.isChallenger = false;
-                r.isEvacuating = true;
+                r.isChallenger = false; r.isHidden = true; // 上に到達したらクリアで一時待避
             }
         } else {
-            // 通常の逃げ
-            if (nearestHunter) {
-                // 鬼を見つけたら逆方向へダッシュ
+            // 2. アイテムを探す
+            let nearestItem = null;
+            let minItemDistSq = Infinity;
+            if (!r.isFool) {
+                state.freezeGuns.forEach(gun => {
+                    let dSq = distSq(r, gun);
+                    if (dSq < minItemDistSq) { minItemDistSq = dSq; nearestItem = gun; }
+                });
+                if (state.mission.phase === 1) {
+                    if (!r.hasItem) {
+                        state.items.forEach(item => {
+                            let dSq = distSq(r, item);
+                            if (dSq < minItemDistSq) { minItemDistSq = dSq; nearestItem = item; }
+                        });
+                    } else if (!r.inSafeZone) {
+                        let dSq = distSq(r, state.mission.safeZone);
+                        if (dSq < minItemDistSq) { minItemDistSq = dSq; nearestItem = state.mission.safeZone; }
+                    }
+                }
+            }
+
+            // 3. 優先度に基づき移動先を決定
+            if (r.isGreedy && nearestItem) {
+                // 強欲: 鬼よりもアイテムを優先
+                targetX = nearestItem.x; targetY = nearestItem.y;
+            } else if (nearestHunter) {
+                // 鬼から逃走
                 let angle = Math.atan2(r.y - nearestHunter.y, r.x - nearestHunter.x);
                 targetX = r.x + Math.cos(angle) * 150;
                 targetY = r.y + Math.sin(angle) * 150;
-            } else if (state.mission.phase === 1 && !r.isFool) {
-                if (!r.hasItem && state.items.length > 0) {
-                    let nearestItem = state.items.reduce((prev, curr) => distSq(r, curr) < distSq(r, prev) ? curr : prev);
-                    targetX = nearestItem.x; targetY = nearestItem.y;
-                } else if (r.hasItem) {
-                    targetX = state.mission.safeZone.x; targetY = state.mission.safeZone.y;
-                    if (distSq(r, state.mission.safeZone) < state.mission.safeZone.r ** 2) {
-                        r.inSafeZone = true;
-                    }
+            } else if (nearestItem && !r.isFool) {
+                // 通常のアイテム取得
+                targetX = nearestItem.x; targetY = nearestItem.y;
+                if (state.mission.phase === 1 && r.hasItem && distSq(r, state.mission.safeZone) < state.mission.safeZone.r ** 2) {
+                    r.inSafeZone = true;
                 }
             } else {
-                // 通常の徘徊
-                if (distSq(r, {x: r.tx, y: r.ty}) < 100 || Math.random() < 0.01) {
+                // 目的地に着くまで直進し続ける（散らばる）
+                if (distSq(r, {x: r.tx, y: r.ty}) < 100) {
                     r.tx = rand(0, MAP_SIZE); r.ty = rand(0, MAP_SIZE);
                 }
             }
@@ -525,14 +479,17 @@ function updateEntities(dt) {
     // 鬼の処理
     state.hunters.forEach(h => {
         if (h.frozen) return;
-        if (h.cooldown > 0) h.cooldown -= dt; // クールダウン時間減算
-
-        // 復活ミッションのフェーズ1では鬼は動かない
-        if (state.revival.active && state.revival.phase === 1) return;
+        
+        // 復活ミッション時の停止
+        if (h.revivalStop > 0) {
+            h.revivalStop -= dt;
+            return; // 停止中は動かない
+        }
+        if (h.cooldown > 0) h.cooldown -= dt; 
 
         if (state.box.active) {
             if (h.x > state.box.x && h.x < state.box.x + state.box.w && h.y > state.box.y && h.y < state.box.y + state.box.h) {
-                if (distSq(h, {x:h.tx, y:h.ty}) < 100 || Math.random() < 0.05) {
+                if (distSq(h, {x:h.tx, y:h.ty}) < 100) {
                     h.tx = state.box.x + rand(10, state.box.w-10);
                     h.ty = state.box.y + rand(10, state.box.h-10);
                 }
@@ -556,13 +513,11 @@ function updateEntities(dt) {
         }
 
         let nearestRunner = null;
-        let minDistSq = SIGHT_RANGE_HUNTER_SQ; // 狭い視界
+        let minDistSq = SIGHT_RANGE_HUNTER_SQ; 
         
-        // クールダウン中でなければターゲットを探す
         if (h.cooldown <= 0) {
             aliveRunners.forEach(r => {
-                // 待避中、あるいは安全エリアの逃げは無視
-                if (r.isEvacuating) return;
+                if (r.isHidden) return; // 隠れている逃げは見えない
                 if (r.inSafeZone && state.mission.phase > 0 && !r.isChallenger) return;
                 if (state.mission.phase === 2 && !r.isChallenger) {
                     let hInSafe = distSq(h, state.mission.safeZone) < (state.mission.safeZone.r ** 2);
@@ -573,22 +528,22 @@ function updateEntities(dt) {
                 let dSq = distSq(h, r);
                 if (dSq < minDistSq) { minDistSq = dSq; nearestRunner = r; }
                 
-                // 確保判定
+                // 確保
                 if (dSq < catchRadSq) { 
                     r.dead = true; 
                     r.isChallenger = false;
-                    h.cooldown = 3.0; // 捕まえたら3秒間探索状態
+                    h.cooldown = 3.0; // 捕まえたら3秒探索モード
                 } 
             });
         }
 
         let currentSpeed = HUNTER_PATROL_SPEED; 
         if (nearestRunner && h.cooldown <= 0) {
-            currentSpeed = HUNTER_CHASE_SPEED;  // ダッシュ
+            currentSpeed = HUNTER_CHASE_SPEED; 
             h.tx = nearestRunner.x; h.ty = nearestRunner.y;
         } else {
-            // 探索状態
-            if (distSq(h, {x: h.tx, y: h.ty}) < 100 || Math.random() < 0.01) {
+            // 目的地に着くまで直進し続ける（散らばる）
+            if (distSq(h, {x: h.tx, y: h.ty}) < 100) {
                 h.tx = rand(0, MAP_SIZE); h.ty = rand(0, MAP_SIZE);
             }
         }
@@ -612,12 +567,9 @@ function moveEntity(e, tx, ty, speed) {
 // --- 描画処理 ---
 function draw() {
     ctx.clearRect(0, 0, canvas.width, canvas.height);
-
     if (!state) return;
 
     ctx.lineWidth = 1;
-
-    // グリッド
     ctx.strokeStyle = '#222';
     ctx.beginPath();
     for(let i=0; i<MAP_SIZE; i+=100) {
@@ -626,7 +578,6 @@ function draw() {
     }
     ctx.stroke();
 
-    // 安全エリア
     if (state.mission.active) {
         ctx.beginPath();
         ctx.arc(state.mission.safeZone.x, state.mission.safeZone.y, state.mission.safeZone.r, 0, Math.PI*2);
@@ -637,30 +588,23 @@ function draw() {
         ctx.stroke();
     }
 
-    // 鬼BOX
     if (state.box.active) {
-        ctx.strokeStyle = '#fff';
-        ctx.lineWidth = 2;
+        ctx.strokeStyle = '#fff'; ctx.lineWidth = 2;
         ctx.strokeRect(state.box.x, state.box.y, state.box.w, state.box.h);
         ctx.fillStyle = 'rgba(255,255,255,0.05)';
         ctx.fillRect(state.box.x, state.box.y, state.box.w, state.box.h);
-        ctx.fillStyle = '#fff';
-        ctx.font = '16px sans-serif';
+        ctx.fillStyle = '#fff'; ctx.font = '16px sans-serif';
         ctx.fillText(Math.ceil(state.box.timer), state.box.x + state.box.w/2 - 8, state.box.y + state.box.h/2 + 6);
     }
 
-    // アイテム (黄色い丸)
     if (state.items.length > 0) {
-        ctx.fillStyle = '#ff0';
-        ctx.beginPath();
+        ctx.fillStyle = '#ff0'; ctx.beginPath();
         state.items.forEach(item => {
-            ctx.moveTo(item.x + ITEM_RADIUS, item.y);
-            ctx.arc(item.x, item.y, ITEM_RADIUS, 0, Math.PI*2);
+            ctx.moveTo(item.x + ITEM_RADIUS, item.y); ctx.arc(item.x, item.y, ITEM_RADIUS, 0, Math.PI*2);
         });
         ctx.fill();
     }
 
-    // 冷凍銃 (黄色い四角)
     if (state.freezeGuns.length > 0) {
         ctx.fillStyle = '#ff0';
         state.freezeGuns.forEach(gun => {
@@ -668,34 +612,27 @@ function draw() {
         });
     }
 
-    // 逃げの描画 (冷凍銃持ちは虹色、それ以外は緑)
+    // 逃げの描画
     let rainbowColor = `hsl(${(Date.now()/5) % 360}, 100%, 50%)`;
     state.runners.forEach(r => {
-        if (r.dead) return;
+        if (r.dead || r.isHidden) return;
         ctx.fillStyle = r.freezeAmmo > 0 ? rainbowColor : '#0f0';
-        ctx.beginPath();
-        ctx.arc(r.x, r.y, ENTITY_RADIUS, 0, Math.PI*2);
-        ctx.fill();
+        ctx.beginPath(); ctx.arc(r.x, r.y, ENTITY_RADIUS, 0, Math.PI*2); ctx.fill();
     });
 
     // 鬼の描画
     state.hunters.forEach(h => {
         if (h.frozen) {
             ctx.fillStyle = '#0cf';
-        } else if (state.revival.active && state.revival.phase === 1) {
-            ctx.fillStyle = '#888'; // 復活ミッション退避中は停止して灰色
-        } else if (h.cooldown > 0) {
-            ctx.fillStyle = '#888'; // クールダウン中（探索中）は灰色
+        } else if (h.revivalStop > 0 || h.cooldown > 0) {
+            ctx.fillStyle = '#888'; 
         } else {
             ctx.fillStyle = '#f00';
         }
-        ctx.beginPath();
-        ctx.arc(h.x, h.y, ENTITY_RADIUS, 0, Math.PI*2);
-        ctx.fill();
+        ctx.beginPath(); ctx.arc(h.x, h.y, ENTITY_RADIUS, 0, Math.PI*2); ctx.fill();
     });
 }
 
-// --- UI更新 ---
 function updateUI() {
     if (!state) return;
     
@@ -705,22 +642,18 @@ function updateUI() {
         let s = Math.floor(state.timeLeft % 60);
         let timeStr = `${m}:${s.toString().padStart(2, '0')}`;
         
-        if (state.box.active) {
-             timeStr = `開始前 (待機)`;
-        }
-        if (state.mission.active) {
-            timeStr += ` [M: ${Math.ceil(state.mission.timer)}s]`;
-        }
-        if (state.revival.active) {
-             timeStr += ` [復活M進行中]`;
-        }
+        if (state.box.active) timeStr = `開始前 (待機)`;
+        if (state.mission.active) timeStr += ` [M: ${Math.ceil(state.mission.timer)}s]`;
+        if (state.revival.active) timeStr += ` [復活M進行中]`;
+        
         timeEl.innerText = `残り時間: ${timeStr}`;
     } else {
         timeEl.innerText = `終了: ${state.gameResult}`;
     }
 
-    let alive = state.runners.filter(r => !r.dead).length;
-    document.getElementById('status-runners').innerText = `生存者: ${alive} / ${state.runners.length}`;
+    let alive = state.runners.filter(r => !r.dead && !r.isHidden).length;
+    let total = state.runners.length;
+    document.getElementById('status-runners').innerText = `生存者: ${alive} / ${total}`;
 }
 
 draw();
