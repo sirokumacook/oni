@@ -5,9 +5,9 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>NPC 鬼ごっこシミュレーター</title>
     <style>
-        body { margin: 0; overflow: hidden; background-color: #000; color: #fff; font-family: 'Courier New', Courier, monospace; display: flex; }
+        body { margin: 0; overflow: hidden; background-color: #000; color: #fff; font-family: 'Courier New', Courier, monospace; display: flex; touch-action: none; }
 
-        #ui { width: 320px; padding: 25px; background: #111; box-sizing: border-box; overflow-y: auto; height: 100vh; border-right: 2px solid #555; }
+        #ui { width: 320px; padding: 25px; background: #111; box-sizing: border-box; overflow-y: auto; height: 100vh; border-right: 2px solid #555; z-index: 10; }
         #ui::-webkit-scrollbar { width: 8px; }
         #ui::-webkit-scrollbar-track { background: #000; }
         #ui::-webkit-scrollbar-thumb { background: #555; border-radius: 4px; }
@@ -35,7 +35,10 @@
         .btn-revival { border-color: #b0f; color: #b0f; }
         .btn-revival:hover { background: #408; color: #fff; }
 
-        .flex-btns { display: flex; gap: 10px; }
+        .btn-player { border-color: #fff; color: #fff; box-shadow: 0 0 10px rgba(255,255,255,0.5); }
+        .btn-player:hover { background: #fff; color: #000; }
+
+        .flex-btns { display: flex; gap: 10px; margin-bottom: 12px; }
         .flex-btns button { border-color: #a200ff; color: #a200ff; margin-bottom: 0; }
         .flex-btns button:hover { background: #305; color: #fff; }
 
@@ -52,6 +55,34 @@
         
         .legend { margin-top: 20px; font-size: 0.85em; color: #ccc; line-height: 1.8; }
         .legend span { display: inline-block; width: 12px; height: 12px; margin-right: 8px; border-radius: 2px; vertical-align: middle; }
+
+        /* ジョイスティックUI */
+        #joystick-zone {
+            display: none;
+            position: absolute;
+            bottom: 30px;
+            left: 50%;
+            transform: translateX(-50%);
+            width: 140px;
+            height: 140px;
+            background: rgba(255, 255, 255, 0.1);
+            border: 2px solid rgba(255, 255, 255, 0.4);
+            border-radius: 50%;
+            z-index: 1000;
+        }
+        #joystick-knob {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            width: 60px;
+            height: 60px;
+            margin-top: -30px;
+            margin-left: -30px;
+            background: rgba(255, 255, 255, 0.7);
+            border-radius: 50%;
+            box-shadow: 0 0 10px rgba(255,255,255,0.8);
+            pointer-events: none;
+        }
     </style>
 </head>
 <body>
@@ -73,17 +104,19 @@
             <div id="status-message"></div>
         </div>
         
-        <label>追加する鬼の数: <input type="number" id="input-add-hunters" value="5" min="1"></label>
+        <button class="btn-player" onclick="takeControl()">ランダムな逃げを操作する</button>
+
+        <label style="margin-top: 10px;">追加する鬼の数: <input type="number" id="input-add-hunters" value="5" min="1"></label>
         <button onclick="addHuntersBtn()">鬼を追加</button>
         
         <hr>
-        <div class="flex-btns" style="margin-bottom: 12px;">
+        <div class="flex-btns">
             <button onclick="shrinkArea()">エリア縮小</button>
             <button onclick="expandArea()">エリア拡大</button>
         </div>
         
         <button class="btn-mission" onclick="triggerMission()">ミッション発動</button>
-        <div class="flex-btns" style="margin-bottom: 12px;">
+        <div class="flex-btns">
             <button class="btn-freeze" onclick="triggerFreezeGun()">冷凍銃配置</button>
             <button class="btn-unfreeze" onclick="unfreezeAll()">冷凍解除</button>
         </div>
@@ -93,19 +126,23 @@
         <button onclick="resetGame()">リセットして戻る</button>
     </div>
 
-    <div class="legend">
+    <div class="legend" style="margin-top:0;">
+        <span style="border:2px solid #fff; background:none;"></span>白枠: プレイヤー<br>
         <span style="background:#0f0;"></span>緑: 逃げ<br>
         <span style="background:linear-gradient(45deg, red, yellow, lime, cyan, blue, magenta);"></span>虹: 冷凍銃持ちの逃げ<br>
         <span style="background:#f00;"></span>赤: 鬼<br>
         <span style="background:#888;"></span>灰: クールダウン/停止中の鬼<br>
         <span style="background:#0cf;"></span>水色: 冷凍された鬼<br>
-        <span style="border:2px solid #a200ff; background:none; box-sizing:border-box;"></span>紫枠: エリア境界線<br>
-        <span style="border:2px solid #0f0; background:none; box-sizing:border-box;"></span>緑/赤枠: 安全エリア
+        <span style="border:2px solid #a200ff; background:none;"></span>紫枠: エリア境界線<br>
+        <span style="border:2px solid #0f0; background:none;"></span>緑/赤枠: 安全エリア
     </div>
 </div>
 
 <div id="game-container">
     <canvas id="gameCanvas"></canvas>
+    <div id="joystick-zone">
+        <div id="joystick-knob"></div>
+    </div>
 </div>
 
 <script>
@@ -142,6 +179,55 @@ function getEdgeSpawnPoint(margin) {
     return { x, y };
 }
 
+// --- ジョイスティック制御 ---
+let joyActive = false;
+let joyInput = { x: 0, y: 0 };
+
+function initJoystick() {
+    const zone = document.getElementById('joystick-zone');
+    const knob = document.getElementById('joystick-knob');
+    const maxR = 40; 
+    let cx = 0, cy = 0;
+
+    function start(e) {
+        joyActive = true;
+        let rect = zone.getBoundingClientRect();
+        cx = rect.left + rect.width / 2;
+        cy = rect.top + rect.height / 2;
+        move(e);
+    }
+    function move(e) {
+        if (!joyActive) return;
+        e.preventDefault();
+        let clientX = e.touches ? e.touches[0].clientX : e.clientX;
+        let clientY = e.touches ? e.touches[0].clientY : e.clientY;
+        let dx = clientX - cx;
+        let dy = clientY - cy;
+        let dist = Math.hypot(dx, dy);
+        if (dist > maxR) {
+            dx = (dx / dist) * maxR;
+            dy = (dy / dist) * maxR;
+        }
+        knob.style.transform = `translate(${dx}px, ${dy}px)`;
+        joyInput.x = dx / maxR;
+        joyInput.y = dy / maxR;
+    }
+    function end(e) {
+        joyActive = false;
+        joyInput.x = 0;
+        joyInput.y = 0;
+        knob.style.transform = `translate(0px, 0px)`;
+    }
+
+    zone.addEventListener('mousedown', start);
+    window.addEventListener('mousemove', move, {passive: false});
+    window.addEventListener('mouseup', end);
+    zone.addEventListener('touchstart', start, {passive: false});
+    window.addEventListener('touchmove', move, {passive: false});
+    window.addEventListener('touchend', end);
+}
+initJoystick();
+
 // --- 初期化ロジック ---
 function initGameState(numRunners, numHunters, timeLimitMinutes) {
     let spawnPos = getEdgeSpawnPoint(0);
@@ -167,7 +253,7 @@ function initGameState(numRunners, numHunters, timeLimitMinutes) {
             hasItem: false, inSafeZone: false, dead: false,
             isFool: isFool, isGreedy: isGreedy, freezeAmmo: 0,
             isHidden: false, isEvacuating: false, isChallenger: false,
-            isCleared: false // ★ ミッションをクリアした「上がり」状態
+            isCleared: false, isPlayer: false // プレイヤー操作フラグ
         });
     }
 
@@ -192,6 +278,7 @@ function initGameState(numRunners, numHunters, timeLimitMinutes) {
         revival: { active: false, phase: 0, timer: 0 },
         lastUpdate: Date.now()
     };
+    document.getElementById('joystick-zone').style.display = 'none';
 }
 
 function startGame() {
@@ -214,6 +301,29 @@ function resetGame() {
     document.getElementById('setup-panel').style.display = 'block';
     document.getElementById('control-panel').style.display = 'none';
     document.getElementById('status-message').innerText = "";
+    document.getElementById('joystick-zone').style.display = 'none';
+}
+
+function takeControl() {
+    if (!state || !state.isRunning) return;
+    
+    let existingPlayer = state.runners.find(r => r.isPlayer);
+    if (existingPlayer) {
+        showMessage("すでにプレイ中です！");
+        return;
+    }
+
+    let aliveRunners = state.runners.filter(r => !r.dead && !r.isHidden && !r.isCleared);
+    if (aliveRunners.length === 0) {
+        showMessage("操作できる逃げがいません！");
+        return;
+    }
+
+    let target = aliveRunners[Math.floor(Math.random() * aliveRunners.length)];
+    target.isPlayer = true;
+    
+    document.getElementById('joystick-zone').style.display = 'block';
+    showMessage("逃げの意識を乗っ取りました！ジョイスティックで操作してください！");
 }
 
 function addHuntersBtn() {
@@ -235,14 +345,14 @@ function addHuntersBtn() {
 function shrinkArea() {
     if(state && state.targetAreaSize > 400) {
         state.targetAreaSize -= 200;
-        showMessage(`エリアを縮小します (目標サイズ: ${state.targetAreaSize})`);
+        showMessage(`エリアを縮小します`);
     }
 }
 
 function expandArea() {
     if(state && state.targetAreaSize < 1000) {
         state.targetAreaSize += 200;
-        showMessage(`エリアを拡大します (目標サイズ: ${state.targetAreaSize})`);
+        showMessage(`エリアを拡大します`);
     }
 }
 
@@ -272,16 +382,9 @@ function unfreezeAll() {
     if (!state || !state.isRunning) return;
     let count = 0;
     state.hunters.forEach(h => {
-        if (h.frozen) {
-            h.frozen = false;
-            count++;
-        }
+        if (h.frozen) { h.frozen = false; count++; }
     });
-    if (count > 0) {
-        showMessage(`冷凍された鬼 ${count} 体の氷を解かしました！`);
-    } else {
-        showMessage("凍っている鬼はいません。");
-    }
+    if (count > 0) showMessage(`冷凍された鬼 ${count} 体の氷を解かしました！`);
 }
 
 function triggerRevival() {
@@ -308,7 +411,6 @@ function triggerRevival() {
             else { r.tx = r.x; r.ty = MAP_SIZE - margin; }
         }
     });
-
     showMessage("復活ミッション発動！生存者はエリア端に一時退避せよ！");
 }
 
@@ -369,7 +471,6 @@ function update() {
                     state.mission.active = false; state.mission.phase = 0;
                     state.hunters = state.hunters.filter(h => !h.isMission);
                     
-                    // ★ ミッション終了時、安全エリアにいた人は「上がり(脱出成功)」にする
                     let clearedThisTime = 0;
                     state.runners.forEach(r => { 
                         if (r.inSafeZone && !r.dead && !r.isCleared) {
@@ -462,6 +563,15 @@ function update() {
             }
         }
 
+        // プレイヤーの死亡・上がり検知
+        let player = state.runners.find(r => r.isPlayer);
+        if (player && (player.dead || player.isCleared)) {
+            player.isPlayer = false;
+            document.getElementById('joystick-zone').style.display = 'none';
+            if (player.dead) showMessage("プレイヤーが確保されました...");
+            else showMessage("見事脱出成功！操作を終了します。");
+        }
+
         let aliveCount = state.runners.filter(r => !r.dead).length;
         if (aliveCount === 0) {
             state.isRunning = false;
@@ -492,7 +602,7 @@ function updateEntities(dt) {
 
     // --- 逃げの処理 ---
     aliveRunners.forEach(r => {
-        if (r.isHidden || r.isCleared) return; // 待避中、または脱出済みの人はスキップ
+        if (r.isHidden || r.isCleared) return; 
 
         // エリア分断壁
         if (state.mission.phase === 2 && !r.isChallenger) {
@@ -509,24 +619,21 @@ function updateEntities(dt) {
         }
 
         // アイテム取得
-        if (!r.isFool) {
-            for (let i = state.freezeGuns.length - 1; i >= 0; i--) {
-                if (distSq(r, state.freezeGuns[i]) < itemRadSq) {
-                    state.freezeGuns.splice(i, 1);
-                    r.freezeAmmo += 10;
-                    showMessage("逃げが冷凍銃をゲット！鬼を見つけたら即座に発射します！");
-                }
+        for (let i = state.freezeGuns.length - 1; i >= 0; i--) {
+            if (distSq(r, state.freezeGuns[i]) < itemRadSq) {
+                state.freezeGuns.splice(i, 1);
+                r.freezeAmmo += 10;
+                if(r.isPlayer) showMessage("冷凍銃をゲット！鬼が近づくと自動で発射します！");
             }
-            if (state.mission.phase === 1 && !r.hasItem) {
-                for (let i = state.items.length - 1; i >= 0; i--) {
-                    if (distSq(r, state.items[i]) < itemRadSq) {
-                        r.hasItem = true; state.items.splice(i, 1); break;
-                    }
+        }
+        if (state.mission.phase === 1 && !r.hasItem) {
+            for (let i = state.items.length - 1; i >= 0; i--) {
+                if (distSq(r, state.items[i]) < itemRadSq) {
+                    r.hasItem = true; state.items.splice(i, 1); break;
                 }
             }
         }
 
-        let targetX = r.tx, targetY = r.ty;
         let nearestHunter = null;
         let minDistSqHunter = SIGHT_RANGE_SQ;
         
@@ -539,7 +646,6 @@ function updateEntities(dt) {
             }
             
             let dSq = distSq(r, h);
-            
             if (r.freezeAmmo > 0 && dSq < freezeFireDistSq && !h.frozen) {
                 h.frozen = true;
                 r.freezeAmmo--;
@@ -548,57 +654,76 @@ function updateEntities(dt) {
             if (dSq < minDistSqHunter) { minDistSqHunter = dSq; nearestHunter = h; }
         });
 
+        // 退避フェーズ中はプレイヤーも含めて強制的にオート移動
         if (r.isEvacuating && state.revival.phase === 1) {
             moveEntity(r, r.tx, r.ty, RUNNER_SPEED, minX, maxX, minY, maxY);
             return;
         }
 
-        if (r.isChallenger) {
-            targetX = r.x; targetY = r.y - 100; 
-            if (nearestHunter) {
-                let angle = Math.atan2(r.y - nearestHunter.y, r.x - nearestHunter.x);
-                targetX = r.x + Math.cos(angle) * 100;
-                targetY = r.y + Math.sin(angle) * 100;
-                targetY -= 50; 
-            }
-            if (r.y <= minY + 10) {
+        let targetX = r.x, targetY = r.y;
+
+        // --- プレイヤー操作 ---
+        if (r.isPlayer) {
+            targetX = r.x + joyInput.x * 100;
+            targetY = r.y + joyInput.y * 100;
+
+            if (r.isChallenger && r.y <= minY + 10) {
                 r.isChallenger = false; r.isHidden = true; 
             }
-        } else {
-            let nearestItem = null;
-            let minItemDistSq = Infinity;
-            if (!r.isFool) {
-                state.freezeGuns.forEach(gun => {
-                    let dSq = distSq(r, gun);
-                    if (dSq < minItemDistSq) { minItemDistSq = dSq; nearestItem = gun; }
-                });
-                if (state.mission.phase === 1) {
-                    if (!r.hasItem) {
-                        state.items.forEach(item => {
-                            let dSq = distSq(r, item);
-                            if (dSq < minItemDistSq) { minItemDistSq = dSq; nearestItem = item; }
-                        });
-                    } else if (!r.inSafeZone) {
-                        let dSq = distSq(r, state.mission.safeZone);
-                        if (dSq < minItemDistSq) { minItemDistSq = dSq; nearestItem = state.mission.safeZone; }
-                    }
-                }
+            if (state.mission.phase === 1 && r.hasItem && distSq(r, state.mission.safeZone) < state.mission.safeZone.r ** 2) {
+                r.inSafeZone = true;
             }
 
-            if (r.isGreedy && nearestItem) {
-                targetX = nearestItem.x; targetY = nearestItem.y;
-            } else if (nearestHunter) {
-                let angle = Math.atan2(r.y - nearestHunter.y, r.x - nearestHunter.x);
-                targetX = r.x + Math.cos(angle) * 150;
-                targetY = r.y + Math.sin(angle) * 150;
-            } else if (nearestItem && !r.isFool) {
-                targetX = nearestItem.x; targetY = nearestItem.y;
-                if (state.mission.phase === 1 && r.hasItem && distSq(r, state.mission.safeZone) < state.mission.safeZone.r ** 2) {
-                    r.inSafeZone = true;
+        // --- AI操作 ---
+        } else {
+            targetX = r.tx; targetY = r.ty;
+            if (r.isChallenger) {
+                targetX = r.x; targetY = r.y - 100; 
+                if (nearestHunter) {
+                    let angle = Math.atan2(r.y - nearestHunter.y, r.x - nearestHunter.x);
+                    targetX = r.x + Math.cos(angle) * 100;
+                    targetY = r.y + Math.sin(angle) * 100;
+                    targetY -= 50; 
+                }
+                if (r.y <= minY + 10) {
+                    r.isChallenger = false; r.isHidden = true; 
                 }
             } else {
-                if (distSq(r, {x: r.tx, y: r.ty}) < 100) {
-                    r.tx = rand(minX, maxX); r.ty = rand(minY, maxY);
+                let nearestItem = null;
+                let minItemDistSq = Infinity;
+                if (!r.isFool) {
+                    state.freezeGuns.forEach(gun => {
+                        let dSq = distSq(r, gun);
+                        if (dSq < minItemDistSq) { minItemDistSq = dSq; nearestItem = gun; }
+                    });
+                    if (state.mission.phase === 1) {
+                        if (!r.hasItem) {
+                            state.items.forEach(item => {
+                                let dSq = distSq(r, item);
+                                if (dSq < minItemDistSq) { minItemDistSq = dSq; nearestItem = item; }
+                            });
+                        } else if (!r.inSafeZone) {
+                            let dSq = distSq(r, state.mission.safeZone);
+                            if (dSq < minItemDistSq) { minItemDistSq = dSq; nearestItem = state.mission.safeZone; }
+                        }
+                    }
+                }
+
+                if (r.isGreedy && nearestItem) {
+                    targetX = nearestItem.x; targetY = nearestItem.y;
+                } else if (nearestHunter) {
+                    let angle = Math.atan2(r.y - nearestHunter.y, r.x - nearestHunter.x);
+                    targetX = r.x + Math.cos(angle) * 150;
+                    targetY = r.y + Math.sin(angle) * 150;
+                } else if (nearestItem && !r.isFool) {
+                    targetX = nearestItem.x; targetY = nearestItem.y;
+                    if (state.mission.phase === 1 && r.hasItem && distSq(r, state.mission.safeZone) < state.mission.safeZone.r ** 2) {
+                        r.inSafeZone = true;
+                    }
+                } else {
+                    if (distSq(r, {x: r.tx, y: r.ty}) < 100) {
+                        r.tx = rand(minX, maxX); r.ty = rand(minY, maxY);
+                    }
                 }
             }
         }
@@ -614,7 +739,6 @@ function updateEntities(dt) {
             clampEntity(h, minX, maxX, minY, maxY); 
             return;
         }
-        
         if (h.revivalStop > 0) {
             h.revivalStop -= dt;
             clampEntity(h, minX, maxX, minY, maxY);
@@ -633,7 +757,6 @@ function updateEntities(dt) {
             }
         }
 
-        // 安全エリア（フェーズ1・2共に侵入不可の壁として機能）
         if (state.mission.active) {
             let dSqCenter = distSq(h, state.mission.safeZone);
             if (dSqCenter < (state.mission.safeZone.r + ENTITY_RADIUS)**2) {
@@ -678,6 +801,11 @@ function updateEntities(dt) {
 }
 
 function moveEntity(e, tx, ty, speed, minX, maxX, minY, maxY) {
+    if (e.isPlayer && joyInput.x === 0 && joyInput.y === 0) {
+        // ジョイスティックが動いていない時は止まる
+        clampEntity(e, minX, maxX, minY, maxY);
+        return;
+    }
     let angle = Math.atan2(ty - e.y, tx - e.x);
     let nx = e.x + Math.cos(angle) * speed;
     let ny = e.y + Math.sin(angle) * speed;
@@ -754,9 +882,19 @@ function draw() {
     // 逃げ
     let rainbowColor = `hsl(${(Date.now()/5) % 360}, 100%, 50%)`;
     state.runners.forEach(r => {
-        if (r.dead || r.isHidden || r.isCleared) return; // 上がった人は描画しない
+        if (r.dead || r.isHidden || r.isCleared) return; 
+        
         ctx.fillStyle = r.freezeAmmo > 0 ? rainbowColor : '#0f0';
         ctx.beginPath(); ctx.arc(r.x, r.y, ENTITY_RADIUS, 0, Math.PI*2); ctx.fill();
+
+        // プレイヤーの場合は白いハイライト枠をつける
+        if (r.isPlayer) {
+            ctx.strokeStyle = '#fff';
+            ctx.lineWidth = 2;
+            ctx.beginPath();
+            ctx.arc(r.x, r.y, ENTITY_RADIUS + 3, 0, Math.PI*2);
+            ctx.stroke();
+        }
     });
 
     // 鬼
@@ -771,7 +909,7 @@ function draw() {
         ctx.beginPath(); ctx.arc(h.x, h.y, ENTITY_RADIUS, 0, Math.PI*2); ctx.fill();
     });
 
-    // カウントダウン表示 (画面中央)
+    // カウントダウン表示
     if (state.revival.active) {
         if (state.revival.phase === 1.5) {
             ctx.fillStyle = 'rgba(255, 255, 255, 0.8)';
@@ -806,10 +944,9 @@ function updateUI() {
         timeEl.innerText = `終了: ${state.gameResult}`;
     }
 
-    // 複雑化した生存者テキストの構築
     let aliveNormal = state.runners.filter(r => !r.dead && !r.isChallenger && !r.isCleared).length; 
     let challengerCount = state.runners.filter(r => r.isChallenger && !r.dead).length; 
-    let clearedCount = state.runners.filter(r => r.isCleared).length; // ミッションクリア者(無敵)
+    let clearedCount = state.runners.filter(r => r.isCleared).length; 
     
     let totalAlive = aliveNormal + challengerCount + clearedCount;
     let runnerText = `生存者: ${totalAlive}`;
@@ -831,7 +968,6 @@ function updateUI() {
     
     document.getElementById('status-runners').innerText = runnerText;
     
-    // 凍っていない鬼のみをカウント
     let activeHunters = state.hunters.filter(h => !h.frozen).length;
     document.getElementById('status-hunters').innerText = `鬼の数: ${activeHunters}`;
 }
